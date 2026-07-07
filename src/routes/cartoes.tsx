@@ -5,7 +5,6 @@ import { AppShell, PageHeader } from "@/components/frisby/app-shell";
 import { MoneyText } from "@/components/frisby/money-text";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
 import {
   Dialog,
   DialogContent,

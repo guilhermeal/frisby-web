@@ -301,5 +301,3 @@ function StatusPill({ status, overdue }: { status: string; overdue?: boolean }) 
   );
 }
 
-// Re-export used above
-export { formatMoney };
