@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Plus, CreditCard, Landmark, Wallet, TrendingUp, Loader2 } from "lucide-react";
+import { Plus, CreditCard, Landmark, Wallet, TrendingUp, Loader2, type LucideIcon } from "lucide-react";
 import { AppShell, PageHeader } from "@/components/frisby/app-shell";
 import { MoneyText } from "@/components/frisby/money-text";
 import { Button } from "@/components/ui/button";
@@ -12,16 +12,12 @@ export const Route = createFileRoute("/_authenticated/contas")({
   component: ContasPage,
 });
 
-const GROUPS: Array<{ type: AccountType; label: string; icon: typeof Home }> = [
+const GROUPS: Array<{ type: AccountType; label: string; icon: LucideIcon }> = [
   { type: "WALLET", label: "Carteiras", icon: Wallet },
   { type: "BANK", label: "Contas bancárias", icon: Landmark },
   { type: "INVESTMENT", label: "Investimentos", icon: TrendingUp },
   { type: "CREDIT_CARD", label: "Cartões", icon: CreditCard },
 ];
-
-function Home() {
-  return null;
-}
 
 function ContasPage() {
   const { entity } = useCurrentEntity();
