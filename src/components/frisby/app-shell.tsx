@@ -1,4 +1,4 @@
-import { Link, useRouterState } from "@tanstack/react-router";
+import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { type ReactNode, useEffect, useState } from "react";
 import {
   Home,
@@ -10,8 +10,9 @@ import {
   Sun,
   Moon,
   ChevronDown,
-  Wallet,
   Settings,
+  LogOut,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -23,7 +24,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
-import { entities, currentEntity } from "@/lib/mock-data";
+import { useAuth } from "@/lib/auth/context";
+import { useCurrentEntity } from "@/lib/auth/use-current-entity";
 
 interface NavItem {
   to: string;
@@ -43,7 +45,8 @@ function useTheme() {
   const [theme, setTheme] = useState<"light" | "dark">("light");
   useEffect(() => {
     const stored = localStorage.getItem("frisby-theme") as "light" | "dark" | null;
-    const initial = stored ?? (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+    const initial =
+      stored ?? (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
     setTheme(initial);
     document.documentElement.classList.toggle("dark", initial === "dark");
   }, []);
@@ -61,6 +64,14 @@ function useTheme() {
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { theme, toggle } = useTheme();
+  const { user, logout } = useAuth();
+  const { entity, entities, setCurrent, isLoading: entitiesLoading } = useCurrentEntity();
+  const navigate = useNavigate();
+
+  async function handleSignOut() {
+    await logout();
+    void navigate({ to: "/auth", replace: true });
+  }
 
   return (
     <div className="min-h-svh bg-background text-foreground">
@@ -78,18 +89,38 @@ export function AppShell({ children }: { children: ReactNode }) {
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="gap-1.5 -ml-1 max-w-[45vw] truncate">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="-ml-1 max-w-[45vw] gap-1.5 truncate"
+                disabled={!entity && !entitiesLoading}
+              >
                 <span className="hidden text-xs uppercase tracking-wider text-muted-foreground sm:inline">
-                  {currentEntity.type === "COMPANY" ? "Empresa" : "Casa"}
+                  {entity?.type === "COMPANY" ? "Empresa" : "Casa"}
                 </span>
-                <span className="truncate font-medium">{currentEntity.name}</span>
+                <span className="truncate font-medium">
+                  {entitiesLoading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    entity?.name ?? "Sem entidade"
+                  )}
+                </span>
                 <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-64">
               <DropdownMenuLabel>Trocar entidade</DropdownMenuLabel>
+              {entities.length === 0 && (
+                <DropdownMenuItem disabled className="text-xs text-muted-foreground">
+                  Nenhuma entidade cadastrada
+                </DropdownMenuItem>
+              )}
               {entities.map((e) => (
-                <DropdownMenuItem key={e.id} className="flex items-center justify-between">
+                <DropdownMenuItem
+                  key={e.id}
+                  onClick={() => setCurrent(e.id)}
+                  className="flex items-center justify-between"
+                >
                   <span className="truncate">{e.name}</span>
                   <span className="text-xs text-muted-foreground">
                     {e.type === "COMPANY" ? "Empresa" : "Casa"}
@@ -111,20 +142,24 @@ export function AppShell({ children }: { children: ReactNode }) {
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon" aria-label="Menu de usuário">
                   <div className="grid h-7 w-7 place-items-center rounded-full bg-brand-soft text-xs font-semibold text-ink">
-                    MA
+                    {user?.initials ?? "?"}
                   </div>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuLabel>Marina Alves</DropdownMenuLabel>
+                <DropdownMenuLabel>{user?.name ?? "Convidado"}</DropdownMenuLabel>
+                {user?.email && (
+                  <p className="px-2 pb-1.5 text-xs text-muted-foreground">{user.email}</p>
+                )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>
                   <Link to="/configuracoes">
                     <Settings className="mr-2 h-4 w-4" /> Configurações
                   </Link>
                 </DropdownMenuItem>
-                <DropdownMenuItem>Perfil</DropdownMenuItem>
-                <DropdownMenuItem>Sair</DropdownMenuItem>
+                <DropdownMenuItem onClick={handleSignOut}>
+                  <LogOut className="mr-2 h-4 w-4" /> Sair
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -159,7 +194,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             </p>
             <p className="mt-1 font-display text-lg">Frisby Casa</p>
             <p className="mt-1 text-xs text-muted-foreground">
-              2 membros · 5 contas · uso confortável
+              Ajuste em Configurações → Plano
             </p>
           </div>
         </aside>
@@ -244,34 +279,6 @@ export function PageHeader({
   );
 }
 
-export function Section({
-  title,
-  action,
-  children,
-  className,
-}: {
-  title?: string;
-  action?: ReactNode;
-  children: ReactNode;
-  className?: string;
-}) {
-  return (
-    <section className={cn("mb-6", className)}>
-      {(title || action) && (
-        <div className="mb-3 flex items-center justify-between px-4 sm:px-6 lg:px-0">
-          {title && (
-            <h2 className="font-display text-sm font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-              {title}
-            </h2>
-          )}
-          {action}
-        </div>
-      )}
-      {children}
-    </section>
-  );
-}
-
-export function WalletIcon() {
-  return <Wallet className="h-4 w-4" />;
+export function Section({ children }: { children: ReactNode }) {
+  return <section className="mb-6">{children}</section>;
 }

@@ -7,10 +7,11 @@ import {
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
+import { AuthProvider } from "../lib/auth/context";
 
 function NotFoundComponent() {
   return (
@@ -127,12 +128,27 @@ function RootShell({ children }: { children: ReactNode }) {
   );
 }
 
+/**
+ * Só instanciamos AuthProvider após a hidratação — ele lê localStorage no
+ * bootstrap, então não deve rodar no servidor para não causar mismatch.
+ */
+function ClientOnly({ children }: { children: ReactNode }) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  if (!mounted) return null;
+  return <>{children}</>;
+}
+
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
   return (
     <QueryClientProvider client={queryClient}>
-      <Outlet />
+      <ClientOnly>
+        <AuthProvider>
+          <Outlet />
+        </AuthProvider>
+      </ClientOnly>
     </QueryClientProvider>
   );
 }

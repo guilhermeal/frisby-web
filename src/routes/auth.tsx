@@ -114,9 +114,3 @@ function AuthPage() {
     </div>
   );
 }
-
-// Se já estiver logado quando bater direto em /auth, o efeito acima redireciona.
-// Não usamos beforeLoad para não precisar de auth-context em contexto de rota.
-export function _keepImports() {
-  return redirect;
-}

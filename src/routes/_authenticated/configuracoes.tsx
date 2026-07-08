@@ -1,15 +1,27 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { LogOut } from "lucide-react";
 import { AppShell, PageHeader } from "@/components/frisby/app-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { useAuth } from "@/lib/auth/context";
+import { useCurrentEntity } from "@/lib/auth/use-current-entity";
 
 export const Route = createFileRoute("/_authenticated/configuracoes")({
   component: Configuracoes,
 });
 
 function Configuracoes() {
+  const { user, logout } = useAuth();
+  const { entity } = useCurrentEntity();
+  const navigate = useNavigate();
+
+  async function handleSignOut() {
+    await logout();
+    void navigate({ to: "/auth", replace: true });
+  }
+
   return (
     <AppShell>
       <PageHeader title="Configurações" subtitle="Entidade, perfil, preferências" />
@@ -17,10 +29,10 @@ function Configuracoes() {
       <div className="mx-4 grid gap-6 sm:mx-6 lg:mx-0 lg:grid-cols-2 xl:grid-cols-3">
         <SettingsCard title="Perfil" desc="Como você aparece no Frisby">
           <Field label="Nome">
-            <Input defaultValue="Marina Alves" />
+            <Input defaultValue={user?.name ?? ""} />
           </Field>
           <Field label="Email">
-            <Input defaultValue="marina@villabella.com" type="email" />
+            <Input defaultValue={user?.email ?? ""} type="email" />
           </Field>
           <Field label="Idioma">
             <Input defaultValue="pt-BR" />
@@ -30,12 +42,15 @@ function Configuracoes() {
           </Field>
         </SettingsCard>
 
-        <SettingsCard title="Entidade ativa" desc="Villa Bella 606 · Casa">
+        <SettingsCard
+          title="Entidade ativa"
+          desc={entity ? `${entity.name} · ${entity.type === "COMPANY" ? "Empresa" : "Casa"}` : "Nenhuma entidade selecionada"}
+        >
           <Field label="Nome">
-            <Input defaultValue="Villa Bella 606" />
+            <Input defaultValue={entity?.name ?? ""} />
           </Field>
           <Field label="Moeda base">
-            <Input defaultValue="BRL" />
+            <Input defaultValue={entity?.baseCurrency ?? "BRL"} />
           </Field>
           <Button variant="outline" className="mt-2">
             Salvar alterações
@@ -49,7 +64,7 @@ function Configuracoes() {
           <Toggle label="Resumo semanal por email" />
         </SettingsCard>
 
-        <SettingsCard title="Plano Frisby Casa" desc="2 membros · 5 contas · uso confortável">
+        <SettingsCard title="Plano Frisby Casa" desc="Ajuste conforme seu uso">
           <div className="rounded-xl border border-border/60 bg-secondary/60 p-4 text-sm">
             <p className="font-medium">Você está no plano Casa (grátis).</p>
             <p className="mt-1 text-xs text-muted-foreground">
@@ -57,6 +72,16 @@ function Configuracoes() {
             </p>
             <Button className="mt-3">Comparar planos</Button>
           </div>
+        </SettingsCard>
+
+        <SettingsCard title="Sessão" desc="Encerrar acesso neste dispositivo">
+          <Button
+            variant="outline"
+            className="w-full justify-start gap-2"
+            onClick={handleSignOut}
+          >
+            <LogOut className="h-4 w-4" /> Sair da conta
+          </Button>
         </SettingsCard>
 
         <SettingsCard title="Privacidade (LGPD)" desc="Seus dados, suas regras">
