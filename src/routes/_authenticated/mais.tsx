@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import { AppShell, PageHeader } from "@/components/frisby/app-shell";
 
-export const Route = createFileRoute("/mais")({
+export const Route = createFileRoute("/_authenticated/mais")({
   component: Mais,
 });
 

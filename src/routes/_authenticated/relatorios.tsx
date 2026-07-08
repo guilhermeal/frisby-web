@@ -16,7 +16,7 @@ import { MoneyText } from "@/components/frisby/money-text";
 import { categories, transactions } from "@/lib/mock-data";
 import { formatMoney } from "@/lib/money";
 
-export const Route = createFileRoute("/relatorios")({
+export const Route = createFileRoute("/_authenticated/relatorios")({
   component: Relatorios,
 });
 

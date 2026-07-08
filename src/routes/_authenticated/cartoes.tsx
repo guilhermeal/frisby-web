@@ -20,7 +20,7 @@ import { formatMoney, subCents } from "@/lib/money";
 import { formatLongDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
-export const Route = createFileRoute("/cartoes")({
+export const Route = createFileRoute("/_authenticated/cartoes")({
   component: CartoesPage,
 });
 
