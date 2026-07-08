@@ -52,10 +52,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     void bootstrap();
-    return onSessionExpired(() => {
+    const unsubscribe = onSessionExpired(() => {
       setUser(null);
       setStatus("unauthenticated");
     });
+    return () => {
+      unsubscribe();
+    };
   }, [bootstrap]);
 
   const login = useCallback(async (email: string, password: string) => {
