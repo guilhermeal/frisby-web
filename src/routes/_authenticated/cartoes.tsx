@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
-import { CreditCard, Info, Lock } from "lucide-react";
+import { useMemo, useState } from "react";
+import { CreditCard as CardIcon, Calendar, ChevronRight, Loader2, Plus } from "lucide-react";
 import { AppShell, PageHeader } from "@/components/frisby/app-shell";
 import { MoneyText } from "@/components/frisby/money-text";
 import { Button } from "@/components/ui/button";
@@ -8,274 +8,335 @@ import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { accounts, invoices } from "@/lib/mock-data";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { useAccounts, useCardInvoices, usePayInvoice } from "@/hooks/api";
+import { useCurrentEntity } from "@/lib/auth/use-current-entity";
 import { formatMoney, subCents } from "@/lib/money";
-import { formatLongDate } from "@/lib/format";
-import { cn } from "@/lib/utils";
+import { formatDate } from "@/lib/format";
+import type { Invoice } from "@/lib/api/types";
 
 export const Route = createFileRoute("/_authenticated/cartoes")({
   component: CartoesPage,
 });
 
 function CartoesPage() {
-  const card = accounts.find((a) => a.type === "CREDIT_CARD")!;
-  const openInvoice = invoices.find((i) => i.status === "OPEN")!;
-  const otherInvoices = invoices.filter((i) => i.id !== openInvoice.id);
+  const { entity } = useCurrentEntity();
+  const accountsQ = useAccounts(entity?.id);
+  const cards = (accountsQ.data ?? []).filter((a) => a.type === "CREDIT_CARD");
+  const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
+  const activeCardId = selectedCardId ?? cards[0]?.id ?? null;
 
-  const available = BigInt(card.creditLimit!) - BigInt(card.usedAmount ?? "0");
-  const usagePct =
-    Number((BigInt(card.usedAmount ?? "0") * 100n) / BigInt(card.creditLimit!));
+  const invoicesQ = useCardInvoices(activeCardId ?? undefined);
+  const [payingInvoice, setPayingInvoice] = useState<Invoice | null>(null);
 
   return (
     <AppShell>
       <PageHeader
         title="Cartões"
-        subtitle="Fatura aberta, histórico e projeções"
+        subtitle="Faturas, rollover e limites"
+        actions={
+          <Button size="sm" className="gap-1.5">
+            <Plus className="h-4 w-4" /> <span className="hidden sm:inline">Novo cartão</span>
+          </Button>
+        }
       />
 
-      <div className="mx-4 grid gap-6 sm:mx-6 lg:mx-0 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
-        {/* Card summary */}
-        <div className="rounded-3xl border border-border/60 bg-gradient-to-br from-ink to-ink/85 p-6 text-primary-foreground shadow-[var(--shadow-lift)]">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-xs uppercase tracking-widest opacity-70">Cartão de crédito</p>
-              <h3 className="mt-1 font-display text-2xl font-semibold">{card.name}</h3>
-              <p className="mt-0.5 text-xs opacity-70">Marina · final 4471</p>
-            </div>
-            <CreditCard className="h-6 w-6 opacity-80" />
-          </div>
-
-          <div className="mt-8">
-            <div className="mb-2 flex items-baseline justify-between text-xs opacity-80">
-              <span>Limite disponível</span>
-              <span className="tnum">{formatMoney(card.creditLimit!)}</span>
-            </div>
-            <div className="h-2 overflow-hidden rounded-full bg-white/10">
-              <div
-                className="h-full rounded-full bg-brand"
-                style={{ width: `${usagePct}%` }}
-              />
-            </div>
-            <div className="mt-2 flex items-baseline justify-between">
-              <span className="font-display text-2xl font-semibold tnum">
-                {formatMoney(available.toString())}
-              </span>
-              <span className="text-xs opacity-70">
-                {formatMoney(card.usedAmount ?? "0")} em uso
-              </span>
-            </div>
-          </div>
-
-          <p className="mt-6 rounded-xl bg-white/10 p-3 text-xs leading-relaxed opacity-90">
-            <Info className="mr-1 inline h-3.5 w-3.5" />
-            Compras no cartão não movem o caixa — só entram na fatura. O caixa mexe quando a
-            fatura é paga.
+      {accountsQ.isLoading ? (
+        <LoadingBox />
+      ) : cards.length === 0 ? (
+        <div className="mx-4 rounded-2xl border border-dashed border-border/70 bg-card p-10 text-center sm:mx-6 lg:mx-0">
+          <CardIcon className="mx-auto mb-2 h-6 w-6 text-muted-foreground" />
+          <p className="text-sm font-medium">Nenhum cartão cadastrado</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Cadastre um cartão em Contas para começar a acompanhar faturas.
           </p>
         </div>
-
-        {/* Open invoice */}
-        <div className="rounded-3xl border border-border/60 bg-card p-6 shadow-[var(--shadow-soft)]">
-          <div className="mb-1 flex items-center gap-2">
-            <Badge className="bg-warning/15 text-warning border-transparent hover:bg-warning/15">
-              Aberta
-            </Badge>
-            <span className="text-xs text-muted-foreground">
-              fecha em {formatLongDate(openInvoice.closingDate)}
-            </span>
-          </div>
-          <h3 className="font-display text-xl font-semibold">
-            Fatura de {invoiceMonthLabel(openInvoice.month)}
-          </h3>
-
-          <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
-            <MiniStat label="Total calculado" value={formatMoney(openInvoice.calculatedAmount)} />
-            <MiniStat
-              label="Saldo trazido"
-              value={formatMoney(openInvoice.carriedBalance)}
-              hint={openInvoice.carriedBalance !== "0" ? "de meses anteriores" : "sem rollover"}
-            />
-            <MiniStat label="Vencimento" value={formatLongDate(openInvoice.dueDate)} />
-          </div>
-
-          <ul className="mt-5 divide-y divide-border/60 rounded-2xl border border-border/60 bg-background/60">
-            {openInvoice.purchases.map((p) => (
-              <li key={p.txId} className="flex items-center gap-3 px-4 py-3">
-                <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-secondary text-[10px] font-bold uppercase text-muted-foreground">
-                  {p.description.slice(0, 2)}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium">{p.description}</p>
-                  {p.installment && (
-                    <Badge variant="secondary" className="mt-1 text-[10px]">
-                      {p.installment}
-                    </Badge>
-                  )}
-                </div>
-                <MoneyText cents={p.amount} kind="expense" className="text-sm" />
-              </li>
-            ))}
-          </ul>
-
-          <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
-            <p className="text-xs text-muted-foreground">
-              {openInvoice.purchases.length} compras nesta fatura
-            </p>
-            <PayInvoiceDialog
-              total={openInvoice.calculatedAmount}
-              dueDate={openInvoice.dueDate}
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* History */}
-      <div className="mx-4 mt-8 sm:mx-6 lg:mx-0">
-        <h2 className="mb-3 font-display text-sm font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-          Histórico de faturas
-        </h2>
-        <div className="overflow-hidden rounded-2xl border border-border/60 bg-card">
-          <ul className="divide-y divide-border/60">
-            {otherInvoices.map((inv) => (
-              <li key={inv.id} className="grid gap-2 p-5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="font-display text-base font-semibold">
-                      {invoiceMonthLabel(inv.month)}
-                    </h3>
-                    <InvoiceStatusBadge status={inv.status} />
-                    {(inv.status === "CLOSED" || inv.status === "PAID") && (
-                      <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
-                        <Lock className="h-3 w-3" /> imutável
-                      </span>
-                    )}
-                  </div>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Fechou {formatLongDate(inv.closingDate)} · venceu {formatLongDate(inv.dueDate)}
+      ) : (
+        <>
+          {/* Card selector (chips) */}
+          <div className="mx-4 mb-4 flex gap-2 overflow-x-auto pb-1 sm:mx-6 lg:mx-0">
+            {cards.map((c) => {
+              const active = c.id === activeCardId;
+              return (
+                <button
+                  key={c.id}
+                  onClick={() => setSelectedCardId(c.id)}
+                  className={
+                    "shrink-0 rounded-2xl border px-4 py-3 text-left transition-colors " +
+                    (active
+                      ? "border-ink bg-ink text-primary-foreground"
+                      : "border-border bg-card hover:bg-secondary")
+                  }
+                >
+                  <p className="font-display text-sm font-semibold">{c.name}</p>
+                  <p
+                    className={
+                      "mt-0.5 text-[11px] " +
+                      (active ? "text-primary-foreground/80" : "text-muted-foreground")
+                    }
+                  >
+                    limite {formatMoney(c.creditLimit ?? "0")}
                   </p>
-                  {inv.status === "PARTIAL" && (
-                    <p className="mt-2 rounded-lg bg-warning/10 px-3 py-2 text-xs text-warning">
-                      Pago {formatMoney(inv.payments[0].amount)} de{" "}
-                      {formatMoney(inv.calculatedAmount)}. {formatMoney(
-                        subCents(inv.calculatedAmount, inv.payments[0].amount),
-                      )}{" "}
-                      rolaram para a próxima fatura.
-                    </p>
-                  )}
-                </div>
-                <div className="text-right sm:text-right">
-                  <MoneyText
-                    cents={inv.calculatedAmount}
-                    kind="expense"
-                    className="font-display text-lg"
-                  />
-                  <p className="text-[11px] text-muted-foreground">
-                    {inv.payments.length} pagamento{inv.payments.length === 1 ? "" : "s"}
-                  </p>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </div>
-      </div>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Invoices */}
+          {invoicesQ.isLoading ? (
+            <LoadingBox />
+          ) : invoicesQ.error ? (
+            <ErrorBox message={(invoicesQ.error as Error).message} />
+          ) : (invoicesQ.data ?? []).length === 0 ? (
+            <div className="mx-4 rounded-2xl border border-dashed border-border/70 bg-card p-8 text-center sm:mx-6 lg:mx-0">
+              <p className="text-sm">Nenhuma fatura ainda para este cartão.</p>
+            </div>
+          ) : (
+            <div className="mx-4 grid gap-3 sm:mx-6 lg:mx-0 lg:grid-cols-2 xl:grid-cols-3">
+              {invoicesQ.data!.map((inv) => (
+                <InvoiceCard
+                  key={inv.id}
+                  invoice={inv}
+                  onPay={() => setPayingInvoice(inv)}
+                />
+              ))}
+            </div>
+          )}
+        </>
+      )}
+
+      <PayInvoiceDialog
+        invoice={payingInvoice}
+        cardId={activeCardId}
+        onClose={() => setPayingInvoice(null)}
+      />
     </AppShell>
   );
 }
 
-function MiniStat({ label, value, hint }: { label: string; value: string; hint?: string }) {
+function InvoiceCard({ invoice, onPay }: { invoice: Invoice; onPay: () => void }) {
+  const paid = invoice.payments.reduce((acc, p) => (BigInt(acc) + BigInt(p.amount)).toString(), "0");
+  const remaining = subCents(invoice.calculatedAmount, paid);
   return (
-    <div className="rounded-xl border border-border/60 bg-background/60 p-3">
-      <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-        {label}
-      </p>
-      <p className="mt-1 font-display text-base font-semibold tnum">{value}</p>
-      {hint && <p className="mt-0.5 text-[10px] text-muted-foreground">{hint}</p>}
+    <article className="rounded-2xl border border-border/60 bg-card p-5">
+      <header className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+            Fatura {invoice.month}
+          </p>
+          <p className="mt-0.5 font-display text-lg font-semibold">
+            {formatMoney(invoice.calculatedAmount)}
+          </p>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            <Calendar className="mr-1 inline h-3 w-3" /> vence {formatDate(invoice.dueDate)}
+          </p>
+        </div>
+        <StatusBadge status={invoice.status} />
+      </header>
+
+      {BigInt(invoice.carriedBalance) > 0n && (
+        <p className="mt-3 rounded-lg bg-secondary/70 px-2.5 py-1.5 text-[11px] text-muted-foreground">
+          Rollover do mês anterior: {formatMoney(invoice.carriedBalance)}
+        </p>
+      )}
+
+      <ul className="mt-3 space-y-1.5 text-xs">
+        {invoice.purchases.slice(0, 3).map((p) => (
+          <li key={p.txId} className="flex items-center justify-between gap-2">
+            <span className="truncate text-muted-foreground">
+              {p.description}
+              {p.installment && ` (${p.installment})`}
+            </span>
+            <MoneyText cents={p.amount} kind="expense" className="text-xs" />
+          </li>
+        ))}
+        {invoice.purchases.length > 3 && (
+          <li className="text-[10px] text-muted-foreground">
+            + {invoice.purchases.length - 3} compras
+          </li>
+        )}
+      </ul>
+
+      <footer className="mt-4 flex items-center justify-between gap-2 border-t border-border/60 pt-3">
+        <div>
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Em aberto</p>
+          <MoneyText cents={remaining} kind="expense" className="text-sm font-semibold" />
+        </div>
+        <Button
+          size="sm"
+          variant={invoice.status === "PAID" ? "outline" : "default"}
+          onClick={onPay}
+          disabled={invoice.status === "PAID"}
+          className="gap-1.5"
+        >
+          {invoice.status === "PAID" ? "Ver detalhes" : "Pagar"}
+          <ChevronRight className="h-3.5 w-3.5" />
+        </Button>
+      </footer>
+    </article>
+  );
+}
+
+function StatusBadge({ status }: { status: Invoice["status"] }) {
+  const map: Record<Invoice["status"], { label: string; cls: string }> = {
+    OPEN: { label: "Aberta", cls: "bg-brand-soft text-ink" },
+    CLOSED: { label: "Fechada", cls: "bg-secondary text-foreground" },
+    PARTIAL: { label: "Parcial", cls: "bg-transfer/10 text-transfer" },
+    PAID: { label: "Paga", cls: "bg-income/10 text-income" },
+  };
+  const { label, cls } = map[status];
+  return <Badge className={cls + " border-transparent"}>{label}</Badge>;
+}
+
+function PayInvoiceDialog({
+  invoice,
+  cardId,
+  onClose,
+}: {
+  invoice: Invoice | null;
+  cardId: string | null;
+  onClose: () => void;
+}) {
+  const { entity } = useCurrentEntity();
+  const accountsQ = useAccounts(entity?.id);
+  const payables = (accountsQ.data ?? []).filter((a) => a.type !== "CREDIT_CARD");
+  const payMutation = usePayInvoice(cardId ?? undefined);
+
+  const remaining = useMemo(() => {
+    if (!invoice) return "0";
+    const paid = invoice.payments.reduce(
+      (acc, p) => (BigInt(acc) + BigInt(p.amount)).toString(),
+      "0",
+    );
+    return subCents(invoice.calculatedAmount, paid);
+  }, [invoice]);
+
+  const [amount, setAmount] = useState("");
+  const [payingAccountId, setPayingAccountId] = useState("");
+  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
+
+  const open = !!invoice;
+  const onOpenChange = (v: boolean) => {
+    if (!v) {
+      onClose();
+      setAmount("");
+      setPayingAccountId("");
+    }
+  };
+
+  async function submit() {
+    if (!invoice) return;
+    const cents = amount ? String(Math.round(Number(amount.replace(",", ".")) * 100)) : remaining;
+    await payMutation.mutateAsync({
+      invoiceId: invoice.id,
+      amount: cents,
+      payingAccountId,
+      date,
+    });
+    onClose();
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Pagar fatura</DialogTitle>
+          <DialogDescription>
+            {invoice && (
+              <>
+                Fatura {invoice.month} · em aberto{" "}
+                <span className="font-medium text-foreground">{formatMoney(remaining)}</span>
+              </>
+            )}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="amount">Valor (deixe vazio para pagar total)</Label>
+            <Input
+              id="amount"
+              inputMode="decimal"
+              placeholder={invoice ? formatMoney(remaining).replace(/\s/g, " ") : ""}
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Conta pagadora</Label>
+            <Select value={payingAccountId} onValueChange={setPayingAccountId}>
+              <SelectTrigger>
+                <SelectValue placeholder="Escolha uma conta" />
+              </SelectTrigger>
+              <SelectContent>
+                {payables.map((a) => (
+                  <SelectItem key={a.id} value={a.id}>
+                    {a.name} · {formatMoney(a.balance)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="date">Data</Label>
+            <Input
+              id="date"
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+            />
+          </div>
+
+          {payMutation.error && (
+            <p className="text-xs text-expense">
+              {(payMutation.error as Error).message}
+            </p>
+          )}
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
+            Cancelar
+          </Button>
+          <Button
+            onClick={submit}
+            disabled={!payingAccountId || payMutation.isPending}
+            className="gap-1.5"
+          >
+            {payMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+            Confirmar pagamento
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function LoadingBox() {
+  return (
+    <div className="mx-4 flex items-center justify-center gap-2 rounded-2xl border border-border/60 bg-card p-10 text-sm text-muted-foreground sm:mx-6 lg:mx-0">
+      <Loader2 className="h-4 w-4 animate-spin" /> Carregando…
     </div>
   );
 }
 
-function InvoiceStatusBadge({ status }: { status: string }) {
-  const map: Record<string, { label: string; cls: string }> = {
-    PAID: { label: "paga", cls: "bg-income/12 text-income" },
-    CLOSED: { label: "fechada", cls: "bg-secondary text-muted-foreground" },
-    PARTIAL: { label: "parcial", cls: "bg-warning/15 text-warning" },
-    OPEN: { label: "aberta", cls: "bg-warning/15 text-warning" },
-  };
-  const { label, cls } = map[status] ?? map.OPEN;
-  return <Badge className={cn("border-transparent hover:opacity-100", cls)}>{label}</Badge>;
-}
-
-function invoiceMonthLabel(ym: string) {
-  const [y, m] = ym.split("-");
-  const d = new Date(Number(y), Number(m) - 1, 1);
-  return new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" }).format(d);
-}
-
-function PayInvoiceDialog({ total, dueDate }: { total: string; dueDate: string }) {
-  const [amount, setAmount] = useState(total);
-  const totalNum = BigInt(total);
-  const paidNum = amount ? BigInt(amount) : 0n;
-  const diff = totalNum - paidNum;
+function ErrorBox({ message }: { message: string }) {
   return (
-    <Dialog>
-      <DialogTrigger asChild>
-        <Button>Pagar fatura</Button>
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-[440px]">
-        <DialogHeader>
-          <DialogTitle className="font-display">Pagar fatura</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-4">
-          <div>
-            <Label htmlFor="pay-amount" className="text-xs uppercase tracking-wider text-muted-foreground">
-              Valor a pagar (centavos)
-            </Label>
-            <Input
-              id="pay-amount"
-              className="mt-1.5 font-display text-lg tnum"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value.replace(/\D/g, ""))}
-              inputMode="numeric"
-            />
-            <p className="mt-1 text-xs text-muted-foreground">
-              Total calculado: <span className="tnum">{formatMoney(total)}</span> · vence{" "}
-              {formatLongDate(dueDate)}
-            </p>
-          </div>
-
-          <div className="rounded-xl bg-secondary/60 p-3 text-sm">
-            Pagando <span className="tnum font-semibold">{formatMoney(amount || "0")}</span>{" "}
-            de <span className="tnum">{formatMoney(total)}</span>,{" "}
-            {diff > 0n ? (
-              <>
-                <span className="tnum font-semibold text-warning">
-                  {formatMoney(diff.toString())}
-                </span>{" "}
-                rolam para a próxima fatura.
-              </>
-            ) : diff < 0n ? (
-              <>
-                <span className="tnum font-semibold text-income">
-                  {formatMoney((-diff).toString())}
-                </span>{" "}
-                viram crédito na próxima fatura.
-              </>
-            ) : (
-              <>fatura quitada em cheio.</>
-            )}
-          </div>
-        </div>
-        <DialogFooter>
-          <Button variant="outline">Cancelar</Button>
-          <Button>Confirmar pagamento</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <div className="mx-4 rounded-2xl border border-expense/30 bg-expense/5 p-6 text-sm text-expense sm:mx-6 lg:mx-0">
+      {message}
+    </div>
   );
 }
