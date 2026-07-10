@@ -4,7 +4,12 @@
 
 import type { ApiErrorShape, AuthTokens } from "./types";
 
-const BASE_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? "/api";
+// O client roda no browser e SEMPRE chama caminhos relativos "/api/...".
+// Em dev, o Vite faz proxy de "/api" → VITE_API_URL (ver vite.config.ts),
+// removendo o prefixo. Em produção o app é servido do mesmo domínio do
+// backend atrás de "/api". VITE_API_URL NÃO deve virar a base do client
+// aqui — ela é apenas o alvo do proxy do Vite.
+const BASE_URL = "/api";
 
 const ACCESS_KEY = "frisby.access_token";
 const REFRESH_KEY = "frisby.refresh_token";
@@ -37,8 +42,8 @@ export const tokenStore = {
   },
   set(tokens: AuthTokens) {
     if (!isBrowser()) return;
-    localStorage.setItem(ACCESS_KEY, tokens.access_token);
-    localStorage.setItem(REFRESH_KEY, tokens.refresh_token);
+    localStorage.setItem(ACCESS_KEY, tokens.accessToken);
+    localStorage.setItem(REFRESH_KEY, tokens.refreshToken);
   },
   clear() {
     if (!isBrowser()) return;
@@ -87,7 +92,7 @@ async function refreshTokens(): Promise<AuthTokens | null> {
       const res = await fetch(`${BASE_URL}/auth/refresh`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ refresh_token: refresh }),
+        body: JSON.stringify({ refreshToken: refresh }),
       });
       if (!res.ok) return null;
       const data = (await res.json()) as AuthTokens;
@@ -154,7 +159,11 @@ function buildUrl(path: string, query?: RequestOptions["query"]): string {
   return url.toString();
 }
 
-async function doFetch(path: string, opts: RequestOptions, token: string | null): Promise<Response> {
+async function doFetch(
+  path: string,
+  opts: RequestOptions,
+  token: string | null,
+): Promise<Response> {
   const headers: Record<string, string> = {
     Accept: "application/json",
     ...(opts.headers ?? {}),
@@ -181,17 +190,13 @@ export async function request<T = unknown>(path: string, opts: RequestOptions = 
   try {
     res = await doFetch(path, opts, token);
   } catch (err) {
-    throw new ApiError(
-      err instanceof Error ? err.message : "Erro de rede",
-      0,
-      "NETWORK_ERROR",
-    );
+    throw new ApiError(err instanceof Error ? err.message : "Erro de rede", 0, "NETWORK_ERROR");
   }
 
   if (res.status === 401 && !opts.anonymous) {
     const refreshed = await refreshTokens();
     if (refreshed) {
-      res = await doFetch(path, opts, refreshed.access_token);
+      res = await doFetch(path, opts, refreshed.accessToken);
     }
     if (res.status === 401) {
       fireSessionExpired();

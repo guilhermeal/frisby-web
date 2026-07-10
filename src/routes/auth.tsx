@@ -20,7 +20,12 @@ export const Route = createFileRoute("/auth")({
 function AuthPage() {
   const { login, status } = useAuth();
   const navigate = useNavigate();
-  const { redirect: redirectTo } = useSearch({ from: "/auth" });
+  const { redirect: redirectParam } = useSearch({ from: "/auth" });
+  // Só aceita destinos internos que não apontem de volta para /auth.
+  const redirectTo =
+    redirectParam && redirectParam.startsWith("/") && !redirectParam.startsWith("/auth")
+      ? redirectParam
+      : undefined;
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -63,9 +68,7 @@ function AuthPage() {
         </div>
 
         <h1 className="font-display text-2xl font-semibold tracking-tight">Entrar</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Use seu e-mail e senha do Frisby.
-        </p>
+        <p className="mt-1 text-sm text-muted-foreground">Use seu e-mail e senha do Frisby.</p>
 
         <form onSubmit={onSubmit} className="mt-6 space-y-4">
           <div className="space-y-1.5">

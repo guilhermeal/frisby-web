@@ -26,7 +26,12 @@ const AuthContext = createContext<AuthState | undefined>(undefined);
 
 function initials(name: string) {
   const parts = name.trim().split(/\s+/).slice(0, 2);
-  return parts.map((p) => p[0]).join("").toUpperCase() || "?";
+  return (
+    parts
+      .map((p) => p[0])
+      .join("")
+      .toUpperCase() || "?"
+  );
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -62,16 +67,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [bootstrap]);
 
   const login = useCallback(async (email: string, password: string) => {
-    const resp = await authApi.login(email, password);
-    tokenStore.set(resp);
-    const u = resp.user;
-    setUser({ ...u, initials: u.initials ?? initials(u.name) });
+    // O backend devolve só { accessToken, refreshToken }; o usuário vem de /me.
+    const tokens = await authApi.login(email, password);
+    tokenStore.set(tokens);
+    try {
+      const me = await authApi.me();
+      setUser({ ...me, initials: me.initials ?? initials(me.name) });
+    } catch {
+      // Login válido mas /me falhou — segue autenticado sem perfil detalhado.
+      setUser({ id: "", name: email, email, initials: initials(email) });
+    }
     setStatus("authenticated");
   }, []);
 
   const logout = useCallback(async () => {
     try {
-      await authApi.logout();
+      // O backend exige o refresh token no corpo para revogar a sessão.
+      await authApi.logout(tokenStore.getRefresh());
     } catch {
       // best effort
     }

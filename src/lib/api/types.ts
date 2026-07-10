@@ -10,7 +10,7 @@ export type AccountType = "WALLET" | "BANK" | "INVESTMENT" | "CREDIT_CARD";
 export type TxType = "INCOME" | "EXPENSE";
 export type TxStatus = "PLANNED" | "SETTLED";
 export type TxScope = "ENTITY" | "MEMBERS";
-export type MemberRole = "OWNER" | "ADMIN" | "MEMBER";
+export type MemberRole = "OWNER" | "PROVIDER" | "ADMIN" | "MEMBER" | "VIEWER" | "FINANCE";
 export type InvoiceStatus = "OPEN" | "CLOSED" | "PAID" | "PARTIAL";
 
 export interface User {
@@ -24,7 +24,8 @@ export interface Entity {
   id: string;
   name: string;
   type: EntityType;
-  baseCurrency: Currency;
+  /** O backend não expõe moeda por entidade; a UI usa fallback "BRL". */
+  baseCurrency?: Currency;
 }
 
 export interface Member {
@@ -116,15 +117,14 @@ export interface Invoice {
 
 // ---- respostas de auth ----
 
+// O backend (financial/server) devolve tokens em camelCase e NÃO inclui o
+// usuário no login — o client busca GET /me logo em seguida.
 export interface AuthTokens {
-  access_token: string;
-  refresh_token: string;
-  expires_in?: number;
+  accessToken: string;
+  refreshToken: string;
 }
 
-export interface LoginResponse extends AuthTokens {
-  user: User;
-}
+export type LoginResponse = AuthTokens;
 
 // ---- respostas de relatórios ----
 

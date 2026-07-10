@@ -18,9 +18,12 @@ export function MoneyText({ cents, kind = "neutral", currency = "BRL", className
         : kind === "transfer"
           ? "text-transfer"
           : "text-foreground";
+  // A API envia valores sempre positivos; o sinal exibido vem da natureza
+  // do lançamento (despesa = "−"), não do sinal aritmético.
+  const displayCents = sign && kind === "expense" && !cents.startsWith("-") ? `-${cents}` : cents;
   return (
     <span className={cn("tnum font-medium", color, className)}>
-      {formatMoney(cents, currency, "pt-BR", { sign })}
+      {formatMoney(displayCents, currency, "pt-BR", { sign })}
     </span>
   );
 }

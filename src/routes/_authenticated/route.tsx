@@ -22,6 +22,11 @@ function AuthenticatedLayout() {
   }
 
   if (status === "unauthenticated") {
+    // Durante a transição para /auth este layout ainda re-renderiza com o
+    // location já em /auth?redirect=... — re-emitir <Navigate> aqui aninharia
+    // o redirect indefinidamente (/auth?redirect=/auth?...). Se a navegação
+    // já está a caminho do login, não faz nada.
+    if (location.href.startsWith("/auth")) return null;
     return <Navigate to="/auth" search={{ redirect: location.href }} replace />;
   }
 
