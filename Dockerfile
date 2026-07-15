@@ -8,16 +8,18 @@ RUN npm ci
 
 COPY . .
 
-# Força o Nitro a buildar no formato de Servidor Node Autônomo
+# Injeta as variáveis de ambiente que o frontend usa para achar a API
 ENV NITRO_PRESET=node-server
+ENV VITE_API_URL=http://184.174.32.147:3001
+ENV API_URL=http://184.174.32.147:3001
+
 RUN npm run build
 
-# ── Runtime stage (Rodando o servidor Node autônomo gerado pelo Nitro) ──────────
+# ── Runtime stage ──────────────────────────────────────────────────────────────
 FROM node:22-alpine AS runtime
 
 WORKDIR /app
 
-# Copia os arquivos gerados pelo preset node-server
 COPY --from=builder /app/.output ./.output
 
 EXPOSE 3000
@@ -28,5 +30,8 @@ ENV PORT=3000
 ENV NITRO_PORT=3000
 ENV NODE_ENV=production
 
-# Agora o index.mjs vai de fato iniciar um servidor HTTP que fica ouvindo na porta 3000!
+# Repassa também as variáveis para o runtime
+ENV VITE_API_URL=http://184.174.32.147:3001
+ENV API_URL=http://184.174.32.147:3001
+
 CMD ["node", ".output/server/index.mjs"]
