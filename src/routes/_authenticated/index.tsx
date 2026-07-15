@@ -1,5 +1,12 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowUpRight, ArrowDownRight, AlertCircle, ChevronRight, CircleDot } from "lucide-react";
+import {
+  ArrowUpRight,
+  ArrowDownRight,
+  AlertCircle,
+  ChevronRight,
+  CircleDot,
+  Home,
+} from "lucide-react";
 import { AppShell, PageHeader, Section } from "@/components/frisby/app-shell";
 import { ReturnArc } from "@/components/frisby/return-arc";
 import { MoneyText } from "@/components/frisby/money-text";
@@ -23,7 +30,7 @@ const MONTHLY_BUDGET_CENTS = "0";
 
 function Dashboard() {
   const { user } = useAuth();
-  const { entity } = useCurrentEntity();
+  const { entity, entities, isLoading: entitiesLoading } = useCurrentEntity();
   const month = currentMonth();
 
   const accountsQ = useAccounts(entity?.id);
@@ -43,8 +50,7 @@ function Dashboard() {
   const report = reportQ.data;
   const budgetUsed = report?.expense ?? "0";
   const budgetPct = MONTHLY_BUDGET_CENTS === "0" ? 0 : pct(budgetUsed, MONTHLY_BUDGET_CENTS);
-  const remaining =
-    MONTHLY_BUDGET_CENTS === "0" ? "0" : subCents(MONTHLY_BUDGET_CENTS, budgetUsed);
+  const remaining = MONTHLY_BUDGET_CENTS === "0" ? "0" : subCents(MONTHLY_BUDGET_CENTS, budgetUsed);
 
   const transactions = txQ.data ?? [];
   const upcoming = transactions.filter((t) => t.status === "PLANNED").slice(0, 4);
@@ -54,6 +60,33 @@ function Dashboard() {
     .slice(0, 5);
 
   const firstName = user?.name.split(" ")[0] ?? "";
+  const noEntities = !entitiesLoading && entities.length === 0;
+
+  if (noEntities) {
+    return (
+      <AppShell>
+        <PageHeader title={firstName ? `Bom dia, ${firstName}` : "Bom dia"} />
+        <Section>
+          <div className="mx-4 flex flex-col items-center gap-4 rounded-3xl border border-dashed border-border/70 bg-card p-10 text-center sm:mx-6 lg:mx-0">
+            <div className="grid h-14 w-14 place-items-center rounded-2xl bg-brand-soft/60 text-brand">
+              <Home className="h-7 w-7" />
+            </div>
+            <div className="space-y-1">
+              <h2 className="font-display text-lg font-semibold">
+                Crie sua primeira casa ou empresa para começar
+              </h2>
+              <p className="max-w-sm text-sm text-muted-foreground">
+                É onde vivem suas contas, lançamentos e relatórios. Leva menos de um minuto.
+              </p>
+            </div>
+            <Button asChild>
+              <Link to="/onboarding">Criar minha primeira Casa</Link>
+            </Button>
+          </div>
+        </Section>
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell>
@@ -345,15 +378,7 @@ function SkeletonRows({ count }: { count: number }) {
   );
 }
 
-function EmptyState({
-  title,
-  hint,
-  cta,
-}: {
-  title: string;
-  hint: string;
-  cta?: React.ReactNode;
-}) {
+function EmptyState({ title, hint, cta }: { title: string; hint: string; cta?: React.ReactNode }) {
   return (
     <div className="rounded-xl border border-dashed border-border/70 bg-background/40 p-6 text-center">
       <p className="text-sm font-medium">{title}</p>

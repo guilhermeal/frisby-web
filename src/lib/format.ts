@@ -32,3 +32,20 @@ export function currentMonth(): string {
   const now = new Date();
   return `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
 }
+
+/**
+ * Data de HOJE como `YYYY-MM-DD` no fuso LOCAL do usuário — para defaults de
+ * formulário (competência, baixa). Nunca usar toISOString().slice() aqui: à
+ * noite no Brasil o UTC já virou o dia seguinte.
+ */
+export function todayISO(): string {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+}
+
+/** Soma meses a um `YYYY-MM` (delta pode ser negativo). */
+export function addMonths(ym: string, delta: number): string {
+  const [y, m] = ym.split("-").map(Number);
+  const d = new Date(Date.UTC(y, m - 1 + delta, 1));
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
+}

@@ -17,14 +17,29 @@ export const Route = createFileRoute("/_authenticated/mais")({
 });
 
 const ITEMS = [
-  { to: "/contas", label: "Contas", desc: "Carteiras, bancos, investimentos, cartões", icon: Wallet },
-  { to: "/relatorios", label: "Categorias", desc: "Árvore de despesas e receitas", icon: Tags },
-  { to: "/relatorios", label: "Orçamentos", desc: "Metas por categoria", icon: Target },
-  { to: "/relatorios", label: "Investimentos", desc: "Aportes, resgates e rendimentos", icon: TrendingUp },
-  { to: "/mais", label: "Membros & Papéis", desc: "Convites e permissões", icon: Users },
-  { to: "/mais", label: "Meu panorama", desc: "Consolidado entre entidades", icon: Sparkles },
-  { to: "/configuracoes", label: "Configurações", desc: "Perfil, notificações, plano", icon: Settings },
-  { to: "/mais", label: "Câmbio", desc: "Moedas e cotações", icon: Globe },
+  {
+    to: "/contas",
+    label: "Contas",
+    desc: "Carteiras, bancos, investimentos, cartões",
+    icon: Wallet,
+  },
+  { to: "/categorias", label: "Categorias", desc: "Árvore de despesas e receitas", icon: Tags },
+  { to: "/orcamentos", label: "Orçamentos", desc: "Metas por categoria", icon: Target },
+  {
+    to: "/investimentos",
+    label: "Investimentos",
+    desc: "Aportes, resgates e rendimentos",
+    icon: TrendingUp,
+  },
+  { to: "/membros", label: "Membros & Papéis", desc: "Convites e permissões", icon: Users },
+  { to: "/panorama", label: "Meu panorama", desc: "Consolidado entre entidades", icon: Sparkles },
+  {
+    to: "/configuracoes",
+    label: "Configurações",
+    desc: "Perfil, notificações, plano",
+    icon: Settings,
+  },
+  { to: "/configuracoes", label: "Câmbio", desc: "Moedas e cotações", icon: Globe },
 ];
 
 function Mais() {

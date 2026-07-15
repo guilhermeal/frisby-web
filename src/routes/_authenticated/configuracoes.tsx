@@ -44,7 +44,11 @@ function Configuracoes() {
 
         <SettingsCard
           title="Entidade ativa"
-          desc={entity ? `${entity.name} · ${entity.type === "COMPANY" ? "Empresa" : "Casa"}` : "Nenhuma entidade selecionada"}
+          desc={
+            entity
+              ? `${entity.name} · ${entity.type === "COMPANY" ? "Empresa" : "Casa"}`
+              : "Nenhuma entidade selecionada"
+          }
         >
           <Field label="Nome">
             <Input defaultValue={entity?.name ?? ""} />
@@ -75,11 +79,7 @@ function Configuracoes() {
         </SettingsCard>
 
         <SettingsCard title="Sessão" desc="Encerrar acesso neste dispositivo">
-          <Button
-            variant="outline"
-            className="w-full justify-start gap-2"
-            onClick={handleSignOut}
-          >
+          <Button variant="outline" className="w-full justify-start gap-2" onClick={handleSignOut}>
             <LogOut className="h-4 w-4" /> Sair da conta
           </Button>
         </SettingsCard>

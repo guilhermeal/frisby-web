@@ -23,9 +23,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { TransactionForm } from "@/components/frisby/transaction-form";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth/context";
 import { useCurrentEntity } from "@/lib/auth/use-current-entity";
+import type { TxType } from "@/lib/api/types";
 
 interface NavItem {
   to: string;
@@ -67,6 +69,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const { user, logout } = useAuth();
   const { entity, entities, setCurrent, isLoading: entitiesLoading } = useCurrentEntity();
   const navigate = useNavigate();
+  const [newTxType, setNewTxType] = useState<TxType | null>(null);
 
   async function handleSignOut() {
     await logout();
@@ -102,7 +105,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                   {entitiesLoading ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
-                    entity?.name ?? "Sem entidade"
+                    (entity?.name ?? "Sem entidade")
                   )}
                 </span>
                 <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
@@ -128,8 +131,10 @@ export function AppShell({ children }: { children: ReactNode }) {
                 </DropdownMenuItem>
               ))}
               <DropdownMenuSeparator />
-              <DropdownMenuItem>
-                <Plus className="mr-2 h-4 w-4" /> Nova entidade
+              <DropdownMenuItem asChild>
+                <Link to="/onboarding">
+                  <Plus className="mr-2 h-4 w-4" /> Nova entidade
+                </Link>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -193,9 +198,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               Plano
             </p>
             <p className="mt-1 font-display text-lg">Frisby Casa</p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Ajuste em Configurações → Plano
-            </p>
+            <p className="mt-1 text-xs text-muted-foreground">Ajuste em Configurações → Plano</p>
           </div>
         </aside>
 
@@ -214,11 +217,21 @@ export function AppShell({ children }: { children: ReactNode }) {
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="mb-2 w-56">
-          <DropdownMenuItem>Despesa</DropdownMenuItem>
-          <DropdownMenuItem>Receita</DropdownMenuItem>
-          <DropdownMenuItem>Transferência</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => setNewTxType("EXPENSE")}>Despesa</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => setNewTxType("INCOME")}>Receita</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => navigate({ to: "/transferencias" })}>
+            Transferência
+          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+
+      {/* Novo lançamento via FAB */}
+      <TransactionForm
+        entityId={entity?.id}
+        open={!!newTxType}
+        onOpenChange={(v) => !v && setNewTxType(null)}
+        defaultType={newTxType ?? "EXPENSE"}
+      />
 
       {/* Bottom nav (mobile) */}
       <nav
@@ -270,9 +283,7 @@ export function PageHeader({
         <h1 className="truncate font-display text-2xl font-semibold tracking-tight sm:text-3xl">
           {title}
         </h1>
-        {subtitle && (
-          <p className="mt-1 truncate text-sm text-muted-foreground">{subtitle}</p>
-        )}
+        {subtitle && <p className="mt-1 truncate text-sm text-muted-foreground">{subtitle}</p>}
       </div>
       {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
     </header>

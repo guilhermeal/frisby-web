@@ -1,41 +1,111 @@
-import { createFileRoute } from "@tanstack/react-router";
+// Lançamentos — tela principal. Filtros de mês/tipo/status vivem na URL
+// (deep-link) e vão para o servidor; a busca textual é client-side (o
+// backend não tem busca). Ações por item: baixar, estornar, editar, excluir.
+
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { Search, Plus, Calendar, Filter, Loader2 } from "lucide-react";
+import { z } from "zod";
+import { Loader2, MoreVertical, Plus, Search } from "lucide-react";
+import { toast } from "sonner";
 import { AppShell, PageHeader } from "@/components/frisby/app-shell";
 import { MoneyText } from "@/components/frisby/money-text";
+import { MonthPicker } from "@/components/frisby/month-picker";
+import { StatusPill } from "@/components/frisby/status-pill";
+import { EmptyState } from "@/components/frisby/empty-state";
+import { TransactionForm } from "@/components/frisby/transaction-form";
+import { SettleDialog } from "@/components/frisby/settle-dialog";
+import { ConfirmDialog } from "@/components/frisby/confirm-dialog";
+import { PermissionGate } from "@/components/frisby/permission-gate";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useCurrentEntity } from "@/lib/auth/use-current-entity";
+import { PERMISSIONS } from "@/lib/auth/use-permissions";
 import {
   useAccounts,
   useCategories,
   useMembers,
   useMonthlyReport,
   useTransactions,
+  useDeleteTransaction,
+  useUnsettleTransaction,
 } from "@/hooks/api";
-import { formatDate, currentMonth } from "@/lib/format";
+import { apiErrorMessage } from "@/lib/api/error-messages";
+import { formatDate, currentMonth, todayISO } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import type { Account, Category, Member, TxStatus } from "@/lib/api/types";
+import type { Account, Category, Member, Transaction, TxStatus, TxType } from "@/lib/api/types";
+
+const searchSchema = z.object({
+  month: z
+    .string()
+    .regex(/^\d{4}-\d{2}$/)
+    .optional(),
+  type: z.enum(["INCOME", "EXPENSE"]).optional(),
+  status: z.enum(["PLANNED", "SETTLED"]).optional(),
+});
 
 export const Route = createFileRoute("/_authenticated/lancamentos")({
+  validateSearch: searchSchema,
   component: Lancamentos,
 });
 
 type FilterKind = "all" | "income" | "expense" | "planned" | "settled";
 
-function Lancamentos() {
-  const [filter, setFilter] = useState<FilterKind>("all");
-  const [q, setQ] = useState("");
-  const { entity } = useCurrentEntity();
-  const month = currentMonth();
+const FILTERS: Array<[FilterKind, string, { type?: TxType; status?: TxStatus }]> = [
+  ["all", "Todos", {}],
+  ["expense", "Despesas", { type: "EXPENSE" }],
+  ["income", "Receitas", { type: "INCOME" }],
+  ["planned", "Previstos", { status: "PLANNED" }],
+  ["settled", "Baixados", { status: "SETTLED" }],
+];
 
-  const txQ = useTransactions({ entityId: entity?.id, month });
+function Lancamentos() {
+  const search = Route.useSearch();
+  const navigate = useNavigate({ from: Route.fullPath });
+  const { entity } = useCurrentEntity();
+
+  const month = search.month ?? currentMonth();
+  const [q, setQ] = useState("");
+
+  const activeFilter: FilterKind =
+    search.type === "EXPENSE"
+      ? "expense"
+      : search.type === "INCOME"
+        ? "income"
+        : search.status === "PLANNED"
+          ? "planned"
+          : search.status === "SETTLED"
+            ? "settled"
+            : "all";
+
+  // Filtros server-side; `q` é refinado no client pelo adapter.
+  const txQ = useTransactions({
+    entityId: entity?.id,
+    month,
+    type: search.type,
+    status: search.status,
+    q,
+  });
   const reportQ = useMonthlyReport(entity?.id, month);
   const catsQ = useCategories(entity?.id);
   const accountsQ = useAccounts(entity?.id);
   const membersQ = useMembers(entity?.id);
+
+  const deleteTx = useDeleteTransaction(entity?.id);
+  const unsettleTx = useUnsettleTransaction(entity?.id);
+
+  // Diálogos
+  const [creating, setCreating] = useState(false);
+  const [editing, setEditing] = useState<Transaction | null>(null);
+  const [settling, setSettling] = useState<Transaction | null>(null);
 
   const categoryMap = useMemo(() => {
     const m = new Map<string, Category>();
@@ -53,19 +123,42 @@ function Lancamentos() {
     return m;
   }, [membersQ.data]);
 
-  const rows = useMemo(() => {
-    const source = txQ.data ?? [];
-    return [...source]
-      .filter((t) => {
-        if (filter === "income" && t.type !== "INCOME") return false;
-        if (filter === "expense" && t.type !== "EXPENSE") return false;
-        if (filter === "planned" && t.status !== "PLANNED") return false;
-        if (filter === "settled" && t.status !== "SETTLED") return false;
-        if (q && !t.description.toLowerCase().includes(q.toLowerCase())) return false;
-        return true;
-      })
-      .sort((a, b) => b.competenceDate.localeCompare(a.competenceDate));
-  }, [txQ.data, filter, q]);
+  const rows = useMemo(
+    () => [...(txQ.data ?? [])].sort((a, b) => b.competenceDate.localeCompare(a.competenceDate)),
+    [txQ.data],
+  );
+
+  function setFilter(kind: FilterKind) {
+    const found = FILTERS.find(([id]) => id === kind)!;
+    void navigate({
+      search: (prev) => ({ month: prev.month, ...found[2] }),
+      replace: true,
+    });
+  }
+
+  function setMonth(next: string) {
+    void navigate({ search: (prev) => ({ ...prev, month: next }), replace: true });
+  }
+
+  async function handleUnsettle(t: Transaction) {
+    try {
+      await unsettleTx.mutateAsync(t.id);
+      toast.success("Lançamento estornado — voltou a previsto");
+    } catch (err) {
+      toast.error(apiErrorMessage(err));
+      throw err;
+    }
+  }
+
+  async function handleDelete(t: Transaction) {
+    try {
+      await deleteTx.mutateAsync(t.id);
+      toast.success("Lançamento excluído");
+    } catch (err) {
+      toast.error(apiErrorMessage(err));
+      throw err; // mantém o ConfirmDialog aberto
+    }
+  }
 
   const report = reportQ.data;
   const isLoading = txQ.isLoading;
@@ -74,23 +167,32 @@ function Lancamentos() {
     <AppShell>
       <PageHeader
         title="Lançamentos"
-        subtitle={`${monthLabel(month)} · realizado × previsto`}
+        subtitle="Realizado × previsto no período"
         actions={
           <>
-            <Button variant="outline" size="sm" className="gap-1.5">
-              <Calendar className="h-4 w-4" />{" "}
-              <span className="hidden sm:inline">{shortMonth(month)}</span>
-            </Button>
-            <Button size="sm" className="gap-1.5">
-              <Plus className="h-4 w-4" /> <span className="hidden sm:inline">Novo</span>
-            </Button>
+            <MonthPicker value={month} onChange={setMonth} className="hidden sm:inline-flex" />
+            <PermissionGate permission={PERMISSIONS.TRANSACTION_CREATE}>
+              <Button size="sm" className="gap-1.5" onClick={() => setCreating(true)}>
+                <Plus className="h-4 w-4" /> <span className="hidden sm:inline">Novo</span>
+              </Button>
+            </PermissionGate>
           </>
         }
       />
 
-      {/* Period totals */}
+      {/* MonthPicker mobile */}
+      <div className="mx-4 mb-4 sm:hidden">
+        <MonthPicker value={month} onChange={setMonth} className="flex w-full justify-between" />
+      </div>
+
+      {/* Totais do período */}
       <div className="mx-4 mb-4 grid grid-cols-3 gap-3 sm:mx-6 lg:mx-0">
-        <TotalCard label="Realizado" cents={report?.expense ?? "0"} kind="expense" loading={reportQ.isLoading} />
+        <TotalCard
+          label="Realizado"
+          cents={report?.expense ?? "0"}
+          kind="expense"
+          loading={reportQ.isLoading}
+        />
         <TotalCard
           label="Previsto"
           cents={report?.plannedExpense ?? "0"}
@@ -106,33 +208,25 @@ function Lancamentos() {
         />
       </div>
 
-      {/* Search + chips */}
+      {/* Busca + chips */}
       <div className="mx-4 mb-4 flex flex-col gap-3 sm:mx-6 lg:mx-0">
         <div className="relative">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Buscar descrição, categoria, membro…"
+            placeholder="Buscar descrição…"
             className="pl-9"
           />
         </div>
         <div className="-mx-1 flex flex-wrap gap-1.5 overflow-x-auto pb-1">
-          {(
-            [
-              ["all", "Todos"],
-              ["expense", "Despesas"],
-              ["income", "Receitas"],
-              ["planned", "Previstos"],
-              ["settled", "Baixados"],
-            ] as const
-          ).map(([id, label]) => (
+          {FILTERS.map(([id, label]) => (
             <button
               key={id}
               onClick={() => setFilter(id)}
               className={cn(
                 "shrink-0 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
-                filter === id
+                activeFilter === id
                   ? "border-ink bg-ink text-primary-foreground"
                   : "border-border bg-background text-muted-foreground hover:text-foreground",
               )}
@@ -140,13 +234,10 @@ function Lancamentos() {
               {label}
             </button>
           ))}
-          <Button variant="ghost" size="sm" className="ml-auto gap-1.5 text-xs">
-            <Filter className="h-3.5 w-3.5" /> Mais filtros
-          </Button>
         </div>
       </div>
 
-      {/* Data */}
+      {/* Lista */}
       <div className="mx-4 rounded-2xl border border-border/60 bg-card sm:mx-6 lg:mx-0">
         {isLoading ? (
           <div className="flex items-center justify-center gap-2 p-10 text-sm text-muted-foreground">
@@ -154,17 +245,22 @@ function Lancamentos() {
           </div>
         ) : txQ.error ? (
           <div className="p-6 text-center text-sm text-expense">
-            Falha ao carregar lançamentos: {(txQ.error as Error).message}
+            Falha ao carregar lançamentos: {apiErrorMessage(txQ.error)}
           </div>
         ) : rows.length === 0 ? (
-          <div className="p-10 text-center">
-            <p className="text-sm font-medium">Nada por aqui ainda</p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Registre a primeira entrada ou despesa do mês.
-            </p>
-            <Button size="sm" className="mt-4 gap-1.5">
-              <Plus className="h-4 w-4" /> Novo lançamento
-            </Button>
+          <div className="p-6">
+            <EmptyState
+              title="Nada por aqui ainda"
+              description="Registre a primeira entrada ou despesa do período."
+              action={
+                <PermissionGate permission={PERMISSIONS.TRANSACTION_CREATE}>
+                  <Button size="sm" className="gap-1.5" onClick={() => setCreating(true)}>
+                    <Plus className="h-4 w-4" /> Novo lançamento
+                  </Button>
+                </PermissionGate>
+              }
+              className="border-none bg-transparent"
+            />
           </div>
         ) : (
           <>
@@ -173,7 +269,7 @@ function Lancamentos() {
               {rows.map((t) => {
                 const cat = categoryMap.get(t.categoryId);
                 const acc = t.accountId ? accountMap.get(t.accountId) : undefined;
-                const isOverdue = t.status === "PLANNED" && isPast(t.competenceDate);
+                const overdue = t.status === "PLANNED" && t.competenceDate < todayISO();
                 return (
                   <li key={t.id} className="flex items-start gap-3 p-4">
                     <div
@@ -197,37 +293,23 @@ function Lancamentos() {
                         {formatDate(t.competenceDate)}
                       </p>
                       <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                        <StatusPill status={t.status} overdue={isOverdue} />
-                        {t.installment && (
-                          <Badge variant="secondary" className="text-[10px]">
-                            {t.installment.number}/{t.installment.total}
-                          </Badge>
-                        )}
-                        {t.recurrence && (
-                          <Badge variant="outline" className="text-[10px]">
-                            recorrente
-                          </Badge>
-                        )}
-                        {t.scope === "MEMBERS" && (
-                          <Badge
-                            variant="outline"
-                            className="border-transfer/40 text-transfer text-[10px]"
-                          >
-                            rateio{" "}
-                            {t.shares
-                              ?.map((s) => memberMap.get(s.memberId)?.initials)
-                              .filter(Boolean)
-                              .join(" · ")}
-                          </Badge>
-                        )}
+                        <StatusPill status={t.status} overdue={overdue} />
+                        <TxBadges t={t} memberMap={memberMap} />
                       </div>
                     </div>
+                    <RowActions
+                      t={t}
+                      onSettle={() => setSettling(t)}
+                      onUnsettle={() => handleUnsettle(t)}
+                      onEdit={() => setEditing(t)}
+                      onDelete={() => handleDelete(t)}
+                    />
                   </li>
                 );
               })}
             </ul>
 
-            {/* Table (desktop) */}
+            {/* Tabela (desktop) */}
             <table className="hidden w-full text-sm md:table">
               <thead className="text-left text-xs uppercase tracking-wider text-muted-foreground">
                 <tr className="border-b border-border/60">
@@ -237,13 +319,14 @@ function Lancamentos() {
                   <th className="px-5 py-3 font-medium">Data</th>
                   <th className="px-5 py-3 font-medium">Status</th>
                   <th className="px-5 py-3 text-right font-medium">Valor</th>
+                  <th className="w-12 px-2 py-3" />
                 </tr>
               </thead>
               <tbody>
                 {rows.map((t) => {
                   const cat = categoryMap.get(t.categoryId);
                   const acc = t.accountId ? accountMap.get(t.accountId) : undefined;
-                  const isOverdue = t.status === "PLANNED" && isPast(t.competenceDate);
+                  const overdue = t.status === "PLANNED" && t.competenceDate < todayISO();
                   return (
                     <tr
                       key={t.id}
@@ -252,34 +335,14 @@ function Lancamentos() {
                       <td className="px-5 py-3.5">
                         <div className="font-medium">{t.description}</div>
                         <div className="mt-0.5 flex flex-wrap gap-1.5">
-                          {t.installment && (
-                            <Badge variant="secondary" className="text-[10px]">
-                              {t.installment.number}/{t.installment.total}
-                            </Badge>
-                          )}
-                          {t.recurrence && (
-                            <Badge variant="outline" className="text-[10px]">
-                              recorrente
-                            </Badge>
-                          )}
-                          {t.scope === "MEMBERS" && (
-                            <Badge
-                              variant="outline"
-                              className="border-transfer/40 text-transfer text-[10px]"
-                            >
-                              rateio
-                            </Badge>
-                          )}
+                          <TxBadges t={t} memberMap={memberMap} />
                         </div>
                       </td>
                       <td className="px-5 py-3.5">
                         {cat && (
                           <span
                             className="inline-flex items-center gap-2 rounded-full px-2 py-0.5 text-xs"
-                            style={{
-                              backgroundColor: `${cat.color}22`,
-                              color: cat.color,
-                            }}
+                            style={{ backgroundColor: `${cat.color}22`, color: cat.color }}
                           >
                             <span
                               className="h-1.5 w-1.5 rounded-full"
@@ -292,17 +355,26 @@ function Lancamentos() {
                       <td className="px-5 py-3.5 text-muted-foreground">
                         {acc?.name ?? "sem conta definida"}
                       </td>
-                      <td className="px-5 py-3.5 text-muted-foreground tnum">
+                      <td className="tnum px-5 py-3.5 text-muted-foreground">
                         {formatDate(t.competenceDate)}
                       </td>
                       <td className="px-5 py-3.5">
-                        <StatusPill status={t.status} overdue={isOverdue} />
+                        <StatusPill status={t.status} overdue={overdue} />
                       </td>
                       <td className="px-5 py-3.5 text-right">
                         <MoneyText
                           cents={t.amount}
                           kind={t.type === "INCOME" ? "income" : "expense"}
                           sign
+                        />
+                      </td>
+                      <td className="px-2 py-3.5">
+                        <RowActions
+                          t={t}
+                          onSettle={() => setSettling(t)}
+                          onUnsettle={() => handleUnsettle(t)}
+                          onEdit={() => setEditing(t)}
+                          onDelete={() => handleDelete(t)}
                         />
                       </td>
                     </tr>
@@ -313,7 +385,111 @@ function Lancamentos() {
           </>
         )}
       </div>
+
+      {/* Diálogos */}
+      <TransactionForm entityId={entity?.id} open={creating} onOpenChange={setCreating} />
+      <TransactionForm
+        entityId={entity?.id}
+        open={!!editing}
+        onOpenChange={(v) => !v && setEditing(null)}
+        transaction={editing ?? undefined}
+      />
+      <SettleDialog
+        entityId={entity?.id}
+        transaction={settling}
+        onClose={() => setSettling(null)}
+      />
     </AppShell>
+  );
+}
+
+// ---------------------------------------------------------------------------
+
+function TxBadges({ t, memberMap }: { t: Transaction; memberMap: Map<string, Member> }) {
+  return (
+    <>
+      {t.installment && (
+        <Badge variant="secondary" className="text-[10px]">
+          {t.installment.number}/{t.installment.total}
+        </Badge>
+      )}
+      {t.recurrence && (
+        <Badge variant="outline" className="text-[10px]">
+          recorrente
+        </Badge>
+      )}
+      {t.scope === "MEMBERS" && (
+        <Badge variant="outline" className="border-transfer/40 text-[10px] text-transfer">
+          rateio{" "}
+          {t.shares
+            ?.map((s) => memberMap.get(s.memberId)?.initials)
+            .filter(Boolean)
+            .join(" · ")}
+        </Badge>
+      )}
+    </>
+  );
+}
+
+function RowActions({
+  t,
+  onSettle,
+  onUnsettle,
+  onEdit,
+  onDelete,
+}: {
+  t: Transaction;
+  onSettle: () => void;
+  onUnsettle: () => Promise<void>;
+  onEdit: () => void;
+  onDelete: () => Promise<void>;
+}) {
+  return (
+    <PermissionGate permission={PERMISSIONS.TRANSACTION_MANAGE}>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Ações do lançamento">
+            <MoreVertical className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-44">
+          {t.status === "PLANNED" ? (
+            <DropdownMenuItem onClick={onSettle}>Dar baixa</DropdownMenuItem>
+          ) : (
+            <ConfirmDialog
+              trigger={
+                <DropdownMenuItem onSelect={(e) => e.preventDefault()}>Estornar</DropdownMenuItem>
+              }
+              title="Estornar lançamento?"
+              description="Ele volta a previsto e o saldo da conta é revertido."
+              confirmLabel="Estornar"
+              onConfirm={onUnsettle}
+            />
+          )}
+          <DropdownMenuItem onClick={onEdit}>Editar</DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <ConfirmDialog
+            trigger={
+              <DropdownMenuItem
+                onSelect={(e) => e.preventDefault()}
+                className="text-expense focus:text-expense"
+              >
+                Excluir
+              </DropdownMenuItem>
+            }
+            title="Excluir lançamento?"
+            description={
+              t.status === "SETTLED"
+                ? "Este lançamento está baixado — excluir também reverte o saldo da conta."
+                : "Esta ação não pode ser desfeita."
+            }
+            confirmLabel="Excluir"
+            destructive
+            onConfirm={onDelete}
+          />
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </PermissionGate>
   );
 }
 
@@ -332,10 +508,7 @@ function TotalCard({
 }) {
   return (
     <div
-      className={cn(
-        "rounded-2xl border border-border/60 bg-card p-3",
-        muted && "bg-background/40",
-      )}
+      className={cn("rounded-2xl border border-border/60 bg-card p-3", muted && "bg-background/40")}
     >
       <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</p>
       {loading ? (
@@ -345,36 +518,4 @@ function TotalCard({
       )}
     </div>
   );
-}
-
-function StatusPill({ status, overdue }: { status: TxStatus; overdue: boolean }) {
-  const label = overdue ? "Atrasado" : status === "SETTLED" ? "Baixado" : "Previsto";
-  const cls = overdue
-    ? "bg-expense/10 text-expense"
-    : status === "SETTLED"
-      ? "bg-income/10 text-income"
-      : "bg-secondary text-muted-foreground";
-  return (
-    <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-medium", cls)}>{label}</span>
-  );
-}
-
-function isPast(iso: string) {
-  const today = new Date();
-  const todayUtc = `${today.getUTCFullYear()}-${String(today.getUTCMonth() + 1).padStart(2, "0")}-${String(today.getUTCDate()).padStart(2, "0")}`;
-  return iso < todayUtc;
-}
-
-function monthLabel(ym: string) {
-  return new Intl.DateTimeFormat("pt-BR", {
-    month: "long",
-    year: "numeric",
-    timeZone: "UTC",
-  }).format(new Date(`${ym}-01`));
-}
-function shortMonth(ym: string) {
-  return new Intl.DateTimeFormat("pt-BR", {
-    month: "short",
-    timeZone: "UTC",
-  }).format(new Date(`${ym}-01`));
 }

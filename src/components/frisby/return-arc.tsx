@@ -23,16 +23,11 @@ export function ReturnArc({ netWorthCents, arcPct, label, sublabel }: Props) {
   const trackLen = C * arcSpan;
   const filled = (clamped / 100) * trackLen;
 
-  const state =
-    clamped >= 100 ? "text-expense" : clamped >= 80 ? "text-warning" : "text-brand";
+  const state = clamped >= 100 ? "text-expense" : clamped >= 80 ? "text-warning" : "text-brand";
 
   return (
     <div className="relative mx-auto grid w-full max-w-[420px] place-items-center">
-      <svg
-        viewBox="0 0 360 360"
-        className="w-full max-w-[360px] rotate-[-140deg]"
-        aria-hidden
-      >
+      <svg viewBox="0 0 360 360" className="w-full max-w-[360px] rotate-[-140deg]" aria-hidden>
         <circle
           cx="180"
           cy="180"

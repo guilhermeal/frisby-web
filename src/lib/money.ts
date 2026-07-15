@@ -1,12 +1,18 @@
 // Money layer — API sends integer cents as STRINGS. Never floats.
 
-export type Currency = "BRL" | "USD" | "EUR" | "JPY";
+/** Código ISO 4217 — a lista completa vem de GET /currencies. */
+export type Currency = string;
 
-const DECIMALS: Record<Currency, number> = { BRL: 2, USD: 2, EUR: 2, JPY: 0 };
+// Moedas SEM 2 casas decimais (unidade menor ≠ 1/100); default é 2.
+const ZERO_DECIMAL = new Set(["JPY", "CLP", "KRW", "VND"]);
+
+function decimalsOf(currency: Currency): number {
+  return ZERO_DECIMAL.has(currency) ? 0 : 2;
+}
 
 export function centsToNumber(cents: string | bigint, currency: Currency = "BRL"): number {
   const n = typeof cents === "bigint" ? cents : BigInt(cents);
-  const divisor = 10 ** DECIMALS[currency];
+  const divisor = 10 ** decimalsOf(currency);
   return Number(n) / divisor;
 }
 
@@ -20,8 +26,8 @@ export function formatMoney(
   const formatted = new Intl.NumberFormat(locale, {
     style: "currency",
     currency,
-    minimumFractionDigits: DECIMALS[currency],
-    maximumFractionDigits: DECIMALS[currency],
+    minimumFractionDigits: decimalsOf(currency),
+    maximumFractionDigits: decimalsOf(currency),
   }).format(Math.abs(value));
   if (opts.sign) {
     if (value > 0) return `+ ${formatted}`;
