@@ -140,6 +140,19 @@ export interface Transaction {
   recurrence?: TransactionRecurrence;
   installment?: TransactionInstallment;
   cardInvoiceMonth?: string;
+  /** true = tem ao menos um comprovante/boleto anexado (ícone de clipe na lista). */
+  hasAttachments?: boolean;
+}
+
+/** Comprovante/boleto/nota fiscal anexado a um lançamento OU pagamento de fatura. */
+export interface Attachment {
+  id: string;
+  fileName: string;
+  mimeType: string;
+  sizeBytes: number;
+  createdAt: string;
+  /** URL assinada e temporária — só presente na listagem (GET), nunca persistida. */
+  downloadUrl?: string;
 }
 
 export interface InvoicePurchase {

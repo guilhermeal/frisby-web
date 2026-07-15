@@ -5,7 +5,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { z } from "zod";
-import { Loader2, MoreVertical, Plus, Search } from "lucide-react";
+import { Loader2, MoreVertical, Paperclip, Plus, Search } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell, PageHeader } from "@/components/frisby/app-shell";
 import { MoneyText } from "@/components/frisby/money-text";
@@ -428,6 +428,11 @@ function TxBadges({ t, memberMap }: { t: Transaction; memberMap: Map<string, Mem
             .filter(Boolean)
             .join(" · ")}
         </Badge>
+      )}
+      {t.hasAttachments && (
+        <span title="Tem anexo" className="inline-flex items-center text-muted-foreground">
+          <Paperclip className="h-3 w-3" />
+        </span>
       )}
     </>
   );

@@ -27,6 +27,7 @@ import { DatePicker } from "@/components/frisby/date-picker";
 import { AccountSelect } from "@/components/frisby/account-select";
 import { CategorySelect } from "@/components/frisby/category-select";
 import { SplitBuilder, sharesSumOk, type Share } from "@/components/frisby/split-builder";
+import { AttachmentUploader } from "@/components/frisby/attachment-uploader";
 import {
   useCreateInstallments,
   useCreateRecurrence,
@@ -588,6 +589,15 @@ export function TransactionForm({
             {fieldErrors.payeeName && (
               <p className="text-xs text-expense">{fieldErrors.payeeName}</p>
             )}
+          </div>
+        )}
+
+        {/* Anexos — comprovante/boleto/nota fiscal. Só disponível em edição
+            (lançamento precisa existir para vincular o anexo). */}
+        {isEdit && transaction && (
+          <div className="space-y-1.5">
+            <Label>Anexos</Label>
+            <AttachmentUploader target={{ kind: "transaction", id: transaction.id }} />
           </div>
         )}
 

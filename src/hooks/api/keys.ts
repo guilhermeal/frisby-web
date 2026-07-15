@@ -37,4 +37,8 @@ export const qk = {
   forecast: (entityId: string, params: Record<string, string | number | undefined>) =>
     ["reports", "forecast", entityId, params] as const,
   overview: ["reports", "overview"] as const,
+  transactionAttachments: (transactionId: string) =>
+    ["attachments", "transaction", transactionId] as const,
+  invoicePaymentAttachments: (invoicePaymentId: string) =>
+    ["attachments", "invoice-payment", invoicePaymentId] as const,
 };

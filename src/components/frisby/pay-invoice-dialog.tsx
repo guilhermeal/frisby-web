@@ -11,6 +11,7 @@ import { ResponsiveDialog } from "@/components/frisby/responsive-dialog";
 import { MoneyInput } from "@/components/frisby/money-input";
 import { DatePicker } from "@/components/frisby/date-picker";
 import { AccountSelect } from "@/components/frisby/account-select";
+import { AttachmentUploader } from "@/components/frisby/attachment-uploader";
 import { usePayInvoice } from "@/hooks/api";
 import { apiErrorMessage } from "@/lib/api/error-messages";
 import { formatMoney, subCents } from "@/lib/money";
@@ -37,6 +38,8 @@ export function PayInvoiceDialog({ entityId, cardId, invoice, onClose }: PayInvo
   const [payingAccountId, setPayingAccountId] = useState<string | undefined>(undefined);
   const [date, setDate] = useState(todayISO());
   const [error, setError] = useState<string | null>(null);
+  /** Preenchido após confirmar o pagamento — habilita anexar o comprovante antes de fechar. */
+  const [paidInvoicePaymentId, setPaidInvoicePaymentId] = useState<string | null>(null);
 
   const remaining = useMemo(
     () => (invoice ? subCents(invoice.calculatedAmount, invoicePaidTotal(invoice)) : "0"),
@@ -49,6 +52,7 @@ export function PayInvoiceDialog({ entityId, cardId, invoice, onClose }: PayInvo
     setPayingAccountId(undefined);
     setDate(todayISO());
     setError(null);
+    setPaidInvoicePaymentId(null);
   }, [invoice]);
 
   if (!invoice) return null;
@@ -56,19 +60,20 @@ export function PayInvoiceDialog({ entityId, cardId, invoice, onClose }: PayInvo
   const paying = amount || remaining;
   const rollover = subCents(remaining, paying);
   const rolloverBig = BigInt(rollover);
+  const alreadyPaid = !!paidInvoicePaymentId;
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!payingAccountId || !invoice) return;
     try {
-      await payMutation.mutateAsync({
+      const { invoicePaymentId } = await payMutation.mutateAsync({
         invoiceId: invoice.id,
         amount: paying,
         payingAccountId,
         date,
       });
       toast.success("Pagamento registrado");
-      onClose();
+      setPaidInvoicePaymentId(invoicePaymentId);
     } catch (err) {
       setError(apiErrorMessage(err));
     }
@@ -86,82 +91,97 @@ export function PayInvoiceDialog({ entityId, cardId, invoice, onClose }: PayInvo
         </>
       }
     >
-      <form onSubmit={onSubmit} className="space-y-4 pb-1">
-        <div className="space-y-1.5">
-          <Label htmlFor="pay-amount">Valor (deixe vazio para pagar o total)</Label>
-          <MoneyInput
-            id="pay-amount"
-            value={amount}
-            onChange={setAmount}
-            placeholder={formatMoney(remaining)}
-          />
-        </div>
-
-        <div className="space-y-1.5">
-          <Label>Conta pagadora</Label>
-          <AccountSelect
-            entityId={entityId}
-            value={payingAccountId}
-            onChange={(id) => setPayingAccountId(id)}
-            excludeTypes={["CREDIT_CARD", "INVESTMENT"]}
-            placeholder="Carteira ou conta bancária"
-          />
-        </div>
-
-        <div className="space-y-1.5">
-          <Label>Data</Label>
-          <DatePicker value={date} onChange={setDate} />
-        </div>
-
-        {/* Frase viva do rollover */}
-        {BigInt(paying || "0") > 0n && (
-          <p
-            className={cn(
-              "rounded-lg px-3 py-2 text-xs",
-              rolloverBig > 0n
-                ? "bg-warning/10 text-warning-foreground text-foreground"
-                : rolloverBig < 0n
-                  ? "bg-transfer/10 text-transfer"
-                  : "bg-income/10 text-income",
-            )}
-          >
-            Pagando <strong>{formatMoney(paying)}</strong> de{" "}
-            <strong>{formatMoney(remaining)}</strong>
-            {rolloverBig > 0n && (
-              <>
-                {" "}
-                — <strong>{formatMoney(rollover)}</strong> rolam para a próxima fatura.
-              </>
-            )}
-            {rolloverBig < 0n && (
-              <>
-                {" "}
-                — <strong>{formatMoney((-rolloverBig).toString())}</strong> viram crédito na próxima
-                fatura.
-              </>
-            )}
-            {rolloverBig === 0n && <> — a fatura fica quitada.</>}
-          </p>
-        )}
-
-        {error && (
-          <div
-            role="alert"
-            className="rounded-lg border border-expense/40 bg-expense/5 px-3 py-2 text-xs text-expense"
-          >
-            {error}
+      {alreadyPaid ? (
+        <div className="space-y-4 pb-1">
+          <div className="rounded-lg bg-income/10 px-3 py-2 text-xs text-income">
+            Pagamento registrado — anexe o comprovante se quiser (opcional).
           </div>
-        )}
+          <div className="space-y-1.5">
+            <Label>Comprovante</Label>
+            <AttachmentUploader target={{ kind: "invoicePayment", id: paidInvoicePaymentId }} />
+          </div>
+          <Button type="button" className="w-full" onClick={onClose}>
+            Concluir
+          </Button>
+        </div>
+      ) : (
+        <form onSubmit={onSubmit} className="space-y-4 pb-1">
+          <div className="space-y-1.5">
+            <Label htmlFor="pay-amount">Valor (deixe vazio para pagar o total)</Label>
+            <MoneyInput
+              id="pay-amount"
+              value={amount}
+              onChange={setAmount}
+              placeholder={formatMoney(remaining)}
+            />
+          </div>
 
-        <Button
-          type="submit"
-          className="w-full"
-          disabled={!payingAccountId || payMutation.isPending}
-        >
-          {payMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          Confirmar pagamento
-        </Button>
-      </form>
+          <div className="space-y-1.5">
+            <Label>Conta pagadora</Label>
+            <AccountSelect
+              entityId={entityId}
+              value={payingAccountId}
+              onChange={(id) => setPayingAccountId(id)}
+              excludeTypes={["CREDIT_CARD", "INVESTMENT"]}
+              placeholder="Carteira ou conta bancária"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>Data</Label>
+            <DatePicker value={date} onChange={setDate} />
+          </div>
+
+          {/* Frase viva do rollover */}
+          {BigInt(paying || "0") > 0n && (
+            <p
+              className={cn(
+                "rounded-lg px-3 py-2 text-xs",
+                rolloverBig > 0n
+                  ? "bg-warning/10 text-warning-foreground text-foreground"
+                  : rolloverBig < 0n
+                    ? "bg-transfer/10 text-transfer"
+                    : "bg-income/10 text-income",
+              )}
+            >
+              Pagando <strong>{formatMoney(paying)}</strong> de{" "}
+              <strong>{formatMoney(remaining)}</strong>
+              {rolloverBig > 0n && (
+                <>
+                  {" "}
+                  — <strong>{formatMoney(rollover)}</strong> rolam para a próxima fatura.
+                </>
+              )}
+              {rolloverBig < 0n && (
+                <>
+                  {" "}
+                  — <strong>{formatMoney((-rolloverBig).toString())}</strong> viram crédito na
+                  próxima fatura.
+                </>
+              )}
+              {rolloverBig === 0n && <> — a fatura fica quitada.</>}
+            </p>
+          )}
+
+          {error && (
+            <div
+              role="alert"
+              className="rounded-lg border border-expense/40 bg-expense/5 px-3 py-2 text-xs text-expense"
+            >
+              {error}
+            </div>
+          )}
+
+          <Button
+            type="submit"
+            className="w-full"
+            disabled={!payingAccountId || payMutation.isPending}
+          >
+            {payMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Confirmar pagamento
+          </Button>
+        </form>
+      )}
     </ResponsiveDialog>
   );
 }

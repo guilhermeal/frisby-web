@@ -15,16 +15,17 @@ export const cardsApi = {
     mapped.payments = (detail.payments ?? []).map(mapPayment);
     return mapped;
   },
-  /** O backend retorna o InvoicePayment criado, não a fatura — recarregar via `invoice()`. */
+  /** O backend retorna o InvoicePayment criado (não a fatura) — usamos só o id, para anexar comprovante. */
   payInvoice: async (
     invoiceId: string,
     body: { amount: string; payingAccountId: string; date: string },
-  ): Promise<void> => {
-    await api.post(`/invoices/${invoiceId}/payments`, {
+  ): Promise<{ invoicePaymentId: string }> => {
+    const payment = await api.post<{ id: string }>(`/invoices/${invoiceId}/payments`, {
       payingAccountId: body.payingAccountId,
       settledAmount: body.amount,
       paymentDate: body.date,
     });
+    return { invoicePaymentId: payment.id };
   },
   /** Limite disponível — compra acima do limite não bloqueia, só avisa. */
   limit: (cardId: string) =>

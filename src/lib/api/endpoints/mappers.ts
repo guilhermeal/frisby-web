@@ -85,6 +85,7 @@ export interface ApiTransaction {
   installmentTotal: number | null;
   /** Preenchido quando a transação é PERNA de uma transferência. */
   transferId: string | null;
+  hasAttachments?: boolean;
 }
 
 export interface ApiInvoicePayment {
@@ -241,6 +242,7 @@ export function mapTransaction(t: ApiTransaction): Transaction {
       t.installmentGroupId && t.installmentNumber && t.installmentTotal
         ? { number: t.installmentNumber, total: t.installmentTotal, groupId: t.installmentGroupId }
         : undefined,
+    hasAttachments: t.hasAttachments ?? false,
   };
 }
 

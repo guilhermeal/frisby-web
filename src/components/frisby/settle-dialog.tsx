@@ -13,6 +13,7 @@ import { MoneyInput } from "@/components/frisby/money-input";
 import { DatePicker } from "@/components/frisby/date-picker";
 import { AccountSelect } from "@/components/frisby/account-select";
 import { SplitBuilder, sharesSumOk, type Share } from "@/components/frisby/split-builder";
+import { AttachmentUploader } from "@/components/frisby/attachment-uploader";
 import { useMembers, useSettleTransaction } from "@/hooks/api";
 import { apiErrorMessage } from "@/lib/api/error-messages";
 import { formatMoney } from "@/lib/money";
@@ -129,6 +130,11 @@ export function SettleDialog({ entityId, transaction, onClose }: SettleDialogPro
             />
           </div>
         )}
+
+        <div className="space-y-1.5">
+          <Label>Anexos</Label>
+          <AttachmentUploader target={{ kind: "transaction", id: transaction.id }} compact />
+        </div>
 
         {error && (
           <div

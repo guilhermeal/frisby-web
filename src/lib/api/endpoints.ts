@@ -12,3 +12,4 @@ export * from "./endpoints/cards";
 export * from "./endpoints/transfers";
 export * from "./endpoints/budgets";
 export * from "./endpoints/reports";
+export * from "./endpoints/attachments";
