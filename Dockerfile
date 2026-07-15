@@ -9,20 +9,20 @@ RUN npm ci
 COPY . .
 RUN npm run build
 
-# ── Runtime stage (Sem Nginx, usando Node para rodar o SSR do Nitro) ───────────
+# ── Runtime stage ──────────────────────────────────────────────────────────────
 FROM node:22-alpine AS runtime
 
 WORKDIR /app
 
-# Copia os arquivos necessários gerados pelo Nitro
 COPY --from=builder /app/.output ./.output
 
 EXPOSE 3000
 
-# Variável de ambiente que o Nitro usa para definir a porta de execução
-ENV PORT=3000
+# Força o Nitro a escutar todas as interfaces de rede na porta 3000
 ENV HOST=0.0.0.0
+ENV NITRO_HOST=0.0.0.0
+ENV PORT=3000
+ENV NITRO_PORT=3000
 ENV NODE_ENV=production
 
-# Comando que inicia o servidor do frontend
 CMD ["node", ".output/server/index.mjs"]
