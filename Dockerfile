@@ -9,28 +9,20 @@ RUN npm ci
 COPY . .
 RUN npm run build
 
-# ── Runtime stage ──────────────────────────────────────────────────────────────
-FROM nginx:alpine AS runtime
+# ── Runtime stage (Sem Nginx, usando Node para rodar o SSR do Nitro) ───────────
+FROM node:22-alpine AS runtime
 
-# 1. Limpa a pasta padrão do Nginx
-RUN rm -rf /usr/share/nginx/html/*
+WORKDIR /app
 
-# 2. Copia os arquivos da pasta 'dist' (padrão do Vite)
-COPY --from=builder /app/dist /usr/share/nginx/html
+# Copia os arquivos necessários gerados pelo Nitro
+COPY --from=builder /app/.output ./.output
 
-# 3. Garante permissão de leitura para o Nginx
-RUN chmod -R 755 /usr/share/nginx/html
+EXPOSE 3000
 
-# 4. Configuração SPA do Nginx
-RUN echo 'server { \
-    listen 80; \
-    location / { \
-        root /usr/share/nginx/html; \
-        index index.html index.htm; \
-        try_files $uri $uri/ /index.html; \
-    } \
-}' > /etc/nginx/conf.d/default.conf
+# Variável de ambiente que o Nitro usa para definir a porta de execução
+ENV PORT=3000
+ENV HOST=0.0.0.0
+ENV NODE_ENV=production
 
-EXPOSE 80
-
-CMD ["nginx", "-g", "daemon off;"]
+# Comando que inicia o servidor do frontend
+CMD ["node", ".output/server/index.mjs"]
