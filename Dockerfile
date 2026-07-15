@@ -12,13 +12,16 @@ RUN npm run build
 # ── Runtime stage ──────────────────────────────────────────────────────────────
 FROM nginx:alpine AS runtime
 
-# 1. Remove a página padrão do Nginx para evitar conflitos
+# 1. Limpa a pasta padrão do Nginx
 RUN rm -rf /usr/share/nginx/html/*
 
-# 2. Copia a saída do build do Nitro para a pasta que o Nginx serve
-COPY --from=builder /app/.output/public /usr/share/nginx/html
+# 2. Copia os arquivos da pasta 'dist' (padrão do Vite)
+COPY --from=builder /app/dist /usr/share/nginx/html
 
-# 3. Define a configuração de rotas (Single Page App) para evitar erros 404
+# 3. Garante permissão de leitura para o Nginx
+RUN chmod -R 755 /usr/share/nginx/html
+
+# 4. Configuração SPA do Nginx
 RUN echo 'server { \
     listen 80; \
     location / { \
