@@ -15,6 +15,9 @@ interface ApiTransfer {
   kind: TransferKind;
   fromAccountId: string;
   toAccountId: string;
+  /** Só presente na listagem (GET /) — nome sempre visível, mesmo sem account.viewOthers. */
+  fromAccountName?: string;
+  toAccountName?: string;
   fromAmount: string;
   fromCurrency: string;
   toAmount: string;
@@ -33,6 +36,8 @@ function mapTransfer(t: ApiTransfer): Transfer {
     kind: t.kind,
     fromAccountId: t.fromAccountId,
     toAccountId: t.toAccountId,
+    fromAccountName: t.fromAccountName ?? "",
+    toAccountName: t.toAccountName ?? "",
     fromAmount: t.fromAmount,
     fromCurrency: t.fromCurrency,
     toAmount: t.toAmount,

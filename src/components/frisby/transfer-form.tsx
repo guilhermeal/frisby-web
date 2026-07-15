@@ -14,7 +14,7 @@ import { MoneyInput } from "@/components/frisby/money-input";
 import { DatePicker } from "@/components/frisby/date-picker";
 import { AccountSelect } from "@/components/frisby/account-select";
 import { EntityAccountSelect } from "@/components/frisby/entity-account-select";
-import { useCreateTransfer, useEntities } from "@/hooks/api";
+import { useCreateTransfer, useEntities, useMembers } from "@/hooks/api";
 import { apiErrorMessage } from "@/lib/api/error-messages";
 import { todayISO } from "@/lib/format";
 import type { Account, TransferKind, TxStatus } from "@/lib/api/types";
@@ -82,6 +82,18 @@ export function TransferForm({
     : undefined;
   const fromEntityName = entitiesQ.data?.find((e) => e.id === entityId)?.name;
 
+  // Nomes dos donos das contas — usados pra montar a descrição automática
+  // "Transferência para <pessoa> · <conta>" quando o campo é deixado em
+  // branco. Busca membros da entidade de origem sempre; da entidade de
+  // destino só quando cross-entity (senão é a mesma lista).
+  const fromMembersQ = useMembers(entityId);
+  const toMembersQ = useMembers(isCrossEntity ? toEntityId : undefined);
+  const ownerName = (ownerId: string | undefined, crossEntityDest: boolean): string | undefined => {
+    if (!ownerId) return undefined;
+    const members = crossEntityDest ? toMembersQ.data : fromMembersQ.data;
+    return members?.find((m) => m.userId === ownerId)?.displayName;
+  };
+
   const crossCurrency = !!from && !!to && from.currency !== to.currency;
 
   const impliedRate = useMemo(() => {
@@ -101,6 +113,20 @@ export function TransferForm({
     return null;
   }, [fromId, toId, amount, crossCurrency, toAmount]);
 
+  // Descrição automática quando o campo é deixado em branco — mesma string
+  // salva nas duas pernas (o backend não tem descrição por perna), então
+  // precisa ser legível pra quem recebe E pra quem envia: "Fulano (Conta) →
+  // Beltrana (Conta)". Só entra em ação se from/to já foram resolvidos.
+  const autoDescription = useMemo((): string | undefined => {
+    if (!from || !to) return undefined;
+    const fromOwner = ownerName(from.ownerId, false);
+    const toOwner = ownerName(to.ownerId, isCrossEntity);
+    const fromLabel = fromOwner ? `${fromOwner} (${from.name})` : from.name;
+    const toLabel = toOwner ? `${toOwner} (${to.name})` : to.name;
+    return `${fromLabel} → ${toLabel}`;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [from, to, isCrossEntity, fromMembersQ.data, toMembersQ.data]);
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (validationError) {
@@ -117,7 +143,7 @@ export function TransferForm({
         toAmount: crossCurrency ? toAmount : undefined,
         date,
         status,
-        description: description || undefined,
+        description: description || autoDescription,
         toEntityId: isCrossEntity ? toEntityId : undefined,
       });
       toast.success(
@@ -252,8 +278,13 @@ export function TransferForm({
             id="transfer-description"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            placeholder="Ex.: reserva do mês"
+            placeholder={autoDescription ?? "Ex.: reserva do mês"}
           />
+          {!description && autoDescription && (
+            <p className="text-xs text-muted-foreground">
+              Se deixar em branco, será salvo como "{autoDescription}".
+            </p>
+          )}
         </div>
 
         {error && (

@@ -14,10 +14,20 @@
       "Bash(curl -s -X POST http://127.0.0.1:3001/auth/login -H \"Content-Type: application/json\" -d '{\"email\":\"teste.frisby@example.com\",\"password\":\"senha12345\"}')",
       "Bash(curl -s -X POST http://127.0.0.1:3001/auth/signup -H \"Content-Type: application/json\" -d '{\"name\":\"Teste Frisby\",\"email\":\"teste.frisby@example.com\",\"password\":\"senha12345\",\"baseCurrency\":\"BRL\",\"locale\":\"pt-BR\"}')",
       "Bash(grep -n \"Fatura fechada\" src/routes/_authenticated/cartoes_.\\\\$cardId.tsx)",
-      "Bash(grep -n -B3 \"O valor calculado será congelado\" src/routes/_authenticated/cartoes_.\\\\$cardId.tsx)"
+      "Bash(grep -n -B3 \"O valor calculado será congelado\" src/routes/_authenticated/cartoes_.\\\\$cardId.tsx)",
+      "Skill(artifact-design)",
+      "Skill(artifact-design:*)",
+      "Bash(node -e ' *)",
+      "Bash(curl -s http://127.0.0.1:3001/currencies -o /dev/null -w \"%{http_code}\\\\n\")",
+      "Bash(curl -s -w '\\\\nHTTP %{http_code}\\\\n' http://127.0.0.1:3001/entities/3b0746c4-6751-4281-ac70-e50d2a45ebe6/transfers -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImMyYjg3NDNkLTI0NDgtNDJjYy05ZDU5LWJhODBhMDk2ZDFjNiIsImVtYWlsIjoicmF5bGFuZWJhcnJvczExQGdtYWlsLmNvbSIsIm5hbWUiOiJSYXlsYW5lIEJhcnJvcyIsImlhdCI6MTc4NDA4OTAxOSwiZXhwIjoxNzg0MDg5MzE5fQ.jyyxzRiG7NdjnVhcSmsFDjZL9xn0-oD_JSG_FAeQIkM')",
+      "Bash(curl -s http://127.0.0.1:3001/entities/3b0746c4-6751-4281-ac70-e50d2a45ebe6/accounts -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImMyYjg3NDNkLTI0NDgtNDJjYy05ZDU5LWJhODBhMDk2ZDFjNiIsImVtYWlsIjoicmF5bGFuZWJhcnJvczExQGdtYWlsLmNvbSIsIm5hbWUiOiJSYXlsYW5lIEJhcnJvcyIsImlhdCI6MTc4NDA4OTAxOSwiZXhwIjoxNzg0MDg5MzE5fQ.jyyxzRiG7NdjnVhcSmsFDjZL9xn0-oD_JSG_FAeQIkM')",
+      "Bash(python3 -c ' *)",
+      "Bash(curl -s http://127.0.0.1:3001/entities/3b0746c4-6751-4281-ac70-e50d2a45ebe6/transfers -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImMyYjg3NDNkLTI0NDgtNDJjYy05ZDU5LWJhODBhMDk2ZDFjNiIsImVtYWlsIjoicmF5bGFuZWJhcnJvczExQGdtYWlsLmNvbSIsIm5hbWUiOiJSYXlsYW5lIEJhcnJvcyIsImlhdCI6MTc4NDA4OTAxOSwiZXhwIjoxNzg0MDg5MzE5fQ.jyyxzRiG7NdjnVhcSmsFDjZL9xn0-oD_JSG_FAeQIkM')",
+      "Bash(curl -s http://127.0.0.1:3001/entities/3b0746c4-6751-4281-ac70-e50d2a45ebe6/transfers -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImMyYjg3NDNkLTI0NDgtNDJjYy05ZDU5LWJhODBhMDk2ZDFjNiIsImVtYWlsIjoicmF5bGFuZWJhcnJvczExQGdtYWlsLmNvbSIsIm5hbWUiOiJSYXlsYW5lIEJhcnJvcyIsImlhdCI6MTc4NDA4OTM4MSwiZXhwIjoxNzg0MDg5NjgxfQ.X316wdR0mtDSrpkh81spnnVBW1e_AyyACHTGe4SR16s')"
     ],
     "additionalDirectories": [
-      "/media/DADOS/Dev/Guilherme/frisby-lovable/src/routes"
+      "/media/DADOS/Dev/Guilherme/frisby-lovable/src/routes",
+      "/media/DADOS/Dev/Guilherme/financial/server/src/modules/transfers"
     ]
   }
 }

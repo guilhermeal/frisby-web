@@ -162,8 +162,12 @@ function TransferenciasPage() {
         ) : (
           <ul className="space-y-2.5">
             {rows.map((t) => {
-              const from = accountMap.get(t.fromAccountId);
-              const to = accountMap.get(t.toAccountId);
+              // O backend sempre inclui fromAccountName/toAccountName na
+              // listagem — funciona mesmo quando o membro não tem permissão
+              // account.viewOthers (não conseguiria resolver pelo accountMap
+              // local, que só contém as contas que ele pode listar).
+              const fromName = t.fromAccountName || accountMap.get(t.fromAccountId)?.name;
+              const toName = t.toAccountName || accountMap.get(t.toAccountId)?.name;
               const cross = t.fromCurrency !== t.toCurrency;
               // Cross-entity: esta entidade pode ser a origem OU o destino da
               // transferência — a conta "do outro lado" não está no accountMap
@@ -186,7 +190,7 @@ function TransferenciasPage() {
                       {isCrossEntity ? (
                         isThisEntityOrigin ? (
                           <>
-                            {from?.name ?? "esta conta"}{" "}
+                            {fromName ?? "esta conta"}{" "}
                             <ArrowRight className="h-3 w-3 text-muted-foreground" /> Transferência
                             para {otherEntityName ?? "outra entidade"}
                           </>
@@ -194,13 +198,13 @@ function TransferenciasPage() {
                           <>
                             Transferência de {otherEntityName ?? "outra entidade"}{" "}
                             <ArrowRight className="h-3 w-3 text-muted-foreground" />{" "}
-                            {to?.name ?? "esta conta"}
+                            {toName ?? "esta conta"}
                           </>
                         )
                       ) : (
                         <>
-                          {from?.name ?? "?"}{" "}
-                          <ArrowRight className="h-3 w-3 text-muted-foreground" /> {to?.name ?? "?"}
+                          {fromName ?? "?"} <ArrowRight className="h-3 w-3 text-muted-foreground" />{" "}
+                          {toName ?? "?"}
                         </>
                       )}
                     </p>

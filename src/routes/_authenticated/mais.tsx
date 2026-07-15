@@ -8,6 +8,7 @@ import {
   TrendingUp,
   Settings,
   Globe,
+  ArrowLeftRight,
   ChevronRight,
 } from "lucide-react";
 import { AppShell, PageHeader } from "@/components/frisby/app-shell";
@@ -22,6 +23,12 @@ const ITEMS = [
     label: "Contas",
     desc: "Carteiras, bancos, investimentos, cartões",
     icon: Wallet,
+  },
+  {
+    to: "/transferencias",
+    label: "Transferências",
+    desc: "Movimente dinheiro entre contas",
+    icon: ArrowLeftRight,
   },
   { to: "/categorias", label: "Categorias", desc: "Árvore de despesas e receitas", icon: Tags },
   { to: "/orcamentos", label: "Orçamentos", desc: "Metas por categoria", icon: Target },

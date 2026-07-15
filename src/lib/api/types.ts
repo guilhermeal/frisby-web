@@ -206,6 +206,10 @@ export interface Transfer {
   kind: TransferKind;
   fromAccountId: string;
   toAccountId: string;
+  /** Nome da conta de origem — vem sempre do backend, mesmo sem account.viewOthers. */
+  fromAccountName: string;
+  /** Nome da conta de destino — vem sempre do backend, mesmo sem account.viewOthers. */
+  toAccountName: string;
   fromAmount: string;
   fromCurrency: string;
   toAmount: string;
