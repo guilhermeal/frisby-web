@@ -199,6 +199,10 @@ export type TransferKind = "GENERIC" | "CONTRIBUTION" | "WITHDRAWAL";
 
 export interface Transfer {
   id: string;
+  /** Entidade de origem (dona da conta fromAccountId). */
+  entityId: string;
+  /** Entidade de destino — presente só quando difere de entityId (cross-entity). */
+  toEntityId?: string;
   kind: TransferKind;
   fromAccountId: string;
   toAccountId: string;

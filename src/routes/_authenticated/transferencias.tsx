@@ -25,6 +25,7 @@ import { PERMISSIONS } from "@/lib/auth/use-permissions";
 import {
   useAccounts,
   useDeleteTransfer,
+  useEntities,
   useSettleTransfer,
   useTransfers,
   useUnsettleTransfer,
@@ -50,6 +51,7 @@ function TransferenciasPage() {
     statusFilter === "all" ? undefined : { status: statusFilter },
   );
   const accountsQ = useAccounts(entity?.id);
+  const entitiesQ = useEntities();
   const settleTransfer = useSettleTransfer(entity?.id);
   const unsettleTransfer = useUnsettleTransfer(entity?.id);
   const deleteTransfer = useDeleteTransfer(entity?.id);
@@ -59,6 +61,12 @@ function TransferenciasPage() {
     for (const a of accountsQ.data ?? []) m.set(a.id, a);
     return m;
   }, [accountsQ.data]);
+
+  const entityName = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const e of entitiesQ.data ?? []) m.set(e.id, e.name);
+    return m;
+  }, [entitiesQ.data]);
 
   async function handleSettle(t: Transfer) {
     try {
@@ -157,6 +165,14 @@ function TransferenciasPage() {
               const from = accountMap.get(t.fromAccountId);
               const to = accountMap.get(t.toAccountId);
               const cross = t.fromCurrency !== t.toCurrency;
+              // Cross-entity: esta entidade pode ser a origem OU o destino da
+              // transferência — a conta "do outro lado" não está no accountMap
+              // local, então mostramos o nome da outra entidade em vez do "?".
+              const isCrossEntity = !!t.toEntityId && t.toEntityId !== t.entityId;
+              const isThisEntityOrigin = t.entityId === entity?.id;
+              const otherEntityName = isCrossEntity
+                ? entityName.get(isThisEntityOrigin ? t.toEntityId! : t.entityId)
+                : undefined;
               return (
                 <li
                   key={t.id}
@@ -167,8 +183,26 @@ function TransferenciasPage() {
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="flex items-center gap-1.5 truncate text-sm font-medium">
-                      {from?.name ?? "?"} <ArrowRight className="h-3 w-3 text-muted-foreground" />{" "}
-                      {to?.name ?? "?"}
+                      {isCrossEntity ? (
+                        isThisEntityOrigin ? (
+                          <>
+                            {from?.name ?? "esta conta"}{" "}
+                            <ArrowRight className="h-3 w-3 text-muted-foreground" /> Transferência
+                            para {otherEntityName ?? "outra entidade"}
+                          </>
+                        ) : (
+                          <>
+                            Transferência de {otherEntityName ?? "outra entidade"}{" "}
+                            <ArrowRight className="h-3 w-3 text-muted-foreground" />{" "}
+                            {to?.name ?? "esta conta"}
+                          </>
+                        )
+                      ) : (
+                        <>
+                          {from?.name ?? "?"}{" "}
+                          <ArrowRight className="h-3 w-3 text-muted-foreground" /> {to?.name ?? "?"}
+                        </>
+                      )}
                     </p>
                     <p className="mt-0.5 truncate text-xs text-muted-foreground">
                       {t.kind === "CONTRIBUTION" && "Aporte · "}

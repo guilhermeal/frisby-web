@@ -13,7 +13,8 @@ import { ResponsiveDialog } from "@/components/frisby/responsive-dialog";
 import { MoneyInput } from "@/components/frisby/money-input";
 import { DatePicker } from "@/components/frisby/date-picker";
 import { AccountSelect } from "@/components/frisby/account-select";
-import { useCreateTransfer } from "@/hooks/api";
+import { EntityAccountSelect } from "@/components/frisby/entity-account-select";
+import { useCreateTransfer, useEntities } from "@/hooks/api";
 import { apiErrorMessage } from "@/lib/api/error-messages";
 import { todayISO } from "@/lib/format";
 import type { Account, TransferKind, TxStatus } from "@/lib/api/types";
@@ -45,11 +46,14 @@ export function TransferForm({
   defaultToId,
 }: TransferFormProps) {
   const createTransfer = useCreateTransfer(entityId);
+  const entitiesQ = useEntities();
 
   const [fromId, setFromId] = useState<string | undefined>(defaultFromId);
   const [from, setFrom] = useState<Account | undefined>(undefined);
   const [toId, setToId] = useState<string | undefined>(defaultToId);
   const [to, setTo] = useState<Account | undefined>(undefined);
+  /** Entidade dona da conta de destino — undefined/igual a entityId = mesma entidade. */
+  const [toEntityId, setToEntityId] = useState<string | undefined>(undefined);
   const [amount, setAmount] = useState("");
   const [toAmount, setToAmount] = useState("");
   const [date, setDate] = useState(todayISO());
@@ -63,6 +67,7 @@ export function TransferForm({
     setFrom(undefined);
     setToId(defaultToId);
     setTo(undefined);
+    setToEntityId(undefined);
     setAmount("");
     setToAmount("");
     setDate(todayISO());
@@ -70,6 +75,12 @@ export function TransferForm({
     setDescription("");
     setError(null);
   }, [open, defaultFromId, defaultToId]);
+
+  const isCrossEntity = !!toEntityId && toEntityId !== entityId;
+  const toEntityName = isCrossEntity
+    ? entitiesQ.data?.find((e) => e.id === toEntityId)?.name
+    : undefined;
+  const fromEntityName = entitiesQ.data?.find((e) => e.id === entityId)?.name;
 
   const crossCurrency = !!from && !!to && from.currency !== to.currency;
 
@@ -107,6 +118,7 @@ export function TransferForm({
         date,
         status,
         description: description || undefined,
+        toEntityId: isCrossEntity ? toEntityId : undefined,
       });
       toast.success(
         kind === "CONTRIBUTION"
@@ -149,17 +161,39 @@ export function TransferForm({
 
         <div className="space-y-1.5">
           <Label>Para</Label>
-          <AccountSelect
-            entityId={entityId}
-            value={toId}
-            onChange={(id, acc) => {
-              setToId(id);
-              setTo(acc);
-            }}
-            excludeTypes={["CREDIT_CARD"]}
-            placeholder="Conta de destino"
-          />
+          {kind === "GENERIC" ? (
+            <EntityAccountSelect
+              currentEntityId={entityId}
+              value={toId}
+              onChange={(id, acc, accEntityId) => {
+                setToId(id);
+                setTo(acc);
+                setToEntityId(accEntityId);
+              }}
+              excludeTypes={["CREDIT_CARD"]}
+              placeholder="Conta de destino"
+            />
+          ) : (
+            <AccountSelect
+              entityId={entityId}
+              value={toId}
+              onChange={(id, acc) => {
+                setToId(id);
+                setTo(acc);
+              }}
+              excludeTypes={["CREDIT_CARD"]}
+              placeholder="Conta de destino"
+            />
+          )}
         </div>
+
+        {isCrossEntity && (
+          <div className="rounded-lg border border-brand/30 bg-brand-soft/40 px-3 py-2 text-xs text-ink">
+            Transferência entre entidades: <strong>{fromEntityName ?? "esta entidade"}</strong> →{" "}
+            <strong>{toEntityName ?? "outra entidade"}</strong>. Cada uma verá só a própria perna
+            nos seus lançamentos.
+          </div>
+        )}
 
         <div className="space-y-1.5">
           <Label htmlFor="transfer-amount">

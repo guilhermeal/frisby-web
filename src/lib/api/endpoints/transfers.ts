@@ -10,6 +10,8 @@ import { dateOnly } from "./mappers";
 
 interface ApiTransfer {
   id: string;
+  entityId: string;
+  toEntityId?: string | null;
   kind: TransferKind;
   fromAccountId: string;
   toAccountId: string;
@@ -26,6 +28,8 @@ interface ApiTransfer {
 function mapTransfer(t: ApiTransfer): Transfer {
   return {
     id: t.id,
+    entityId: t.entityId,
+    toEntityId: t.toEntityId ?? undefined,
     kind: t.kind,
     fromAccountId: t.fromAccountId,
     toAccountId: t.toAccountId,
@@ -50,6 +54,8 @@ export interface CreateTransferBody {
   date: string;
   status: TxStatus;
   description?: string;
+  /** Presente = transferência cross-entity; usuário precisa ser membro desta entidade também. */
+  toEntityId?: string;
 }
 
 export const transfersApi = {
