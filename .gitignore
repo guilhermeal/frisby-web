@@ -17,6 +17,7 @@ dist-ssr
 .claude
 .lovable
 *.local
+.env
 
 # Wrangler / Cloudflare
 .wrangler/
