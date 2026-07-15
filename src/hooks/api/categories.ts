@@ -25,6 +25,7 @@ export function useCreateCategory(entityId: string | undefined) {
       name: string;
       type: TxType;
       parentId?: string;
+      code?: string;
       color?: string;
       icon?: string;
     }) => categoriesApi.create(entityId!, body),
@@ -43,6 +44,7 @@ export function useUpdateCategory(entityId: string | undefined) {
       name?: string;
       color?: string;
       icon?: string;
+      code?: string;
     }) => categoriesApi.update(entityId!, categoryId, body),
     onSuccess: invalidate,
   });
@@ -52,6 +54,23 @@ export function useDeleteCategory(entityId: string | undefined) {
   const invalidate = useInvalidateCategories(entityId);
   return useMutation({
     mutationFn: (categoryId: string) => categoriesApi.remove(entityId!, categoryId),
+    onSuccess: invalidate,
+  });
+}
+
+export function useImportCategoriesJson(entityId: string | undefined) {
+  const invalidate = useInvalidateCategories(entityId);
+  return useMutation({
+    mutationFn: (items: Array<{ code: string; type: TxType; name: string }>) =>
+      categoriesApi.importByJson(entityId!, items),
+    onSuccess: invalidate,
+  });
+}
+
+export function useImportCategoriesCsv(entityId: string | undefined) {
+  const invalidate = useInvalidateCategories(entityId);
+  return useMutation({
+    mutationFn: (csv: string) => categoriesApi.importByCsv(entityId!, csv),
     onSuccess: invalidate,
   });
 }

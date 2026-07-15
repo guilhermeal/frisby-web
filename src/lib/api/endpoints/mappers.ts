@@ -53,6 +53,7 @@ export interface ApiCategory {
   id: string;
   name: string;
   type: TxType;
+  code?: string | null;
   color: string | null;
   icon: string | null;
   parentId?: string | null;
@@ -207,6 +208,7 @@ export function flattenCategories(nodes: ApiCategory[], out: Category[] = []): C
       id: c.id,
       name: c.name,
       type: c.type,
+      code: c.code ?? undefined,
       color: c.color ?? FALLBACK_COLOR,
       icon: c.icon ?? "tag",
       parentId: c.parentId ?? null,

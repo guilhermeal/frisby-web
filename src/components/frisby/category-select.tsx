@@ -1,14 +1,20 @@
 // Seletor de categoria: árvore de 1 nível (subcategorias indentadas),
 // filtrada pelo TIPO do lançamento — categoria de despesa não aparece em
-// receita e vice-versa.
+// receita e vice-versa. Combobox com busca por nome OU código (ex. "1.1.3"
+// resolve direto para "Energia") — fallback é a árvore navegável normal.
 
+import { useMemo, useState } from "react";
+import { Check, ChevronsUpDown } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useCategories } from "@/hooks/api";
 import type { TxType } from "@/lib/api/types";
 import { cn } from "@/lib/utils";
@@ -30,37 +36,91 @@ export function CategorySelect({
   placeholder = "Escolha uma categoria",
   disabled,
 }: CategorySelectProps) {
+  const [open, setOpen] = useState(false);
   const categoriesQ = useCategories(entityId);
   // A lista flat preserva a ordem pai → filhos.
-  const categories = (categoriesQ.data ?? []).filter((c) => c.type === type);
+  const categories = useMemo(
+    () => (categoriesQ.data ?? []).filter((c) => c.type === type),
+    [categoriesQ.data, type],
+  );
+  const selected = categories.find((c) => c.id === value);
 
   return (
-    <Select
-      value={value ?? ""}
-      onValueChange={onChange}
-      disabled={disabled || categoriesQ.isLoading}
-    >
-      <SelectTrigger>
-        <SelectValue placeholder={categoriesQ.isLoading ? "Carregando…" : placeholder} />
-      </SelectTrigger>
-      <SelectContent>
-        {categories.length === 0 && (
-          <div className="px-3 py-2 text-xs text-muted-foreground">
-            Nenhuma categoria de {type === "EXPENSE" ? "despesa" : "receita"}.
-          </div>
-        )}
-        {categories.map((c) => (
-          <SelectItem key={c.id} value={c.id}>
-            <span className={cn("flex items-center gap-2", c.parentId && "pl-5")}>
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          disabled={disabled || categoriesQ.isLoading}
+          className="w-full justify-between font-normal"
+        >
+          {categoriesQ.isLoading ? (
+            "Carregando…"
+          ) : selected ? (
+            <span className="flex min-w-0 items-center gap-2">
               <span
                 className="h-2.5 w-2.5 shrink-0 rounded-full"
-                style={{ backgroundColor: c.color }}
+                style={{ backgroundColor: selected.color }}
               />
-              {c.name}
+              <span className="truncate">{selected.name}</span>
+              {selected.code && (
+                <span className="shrink-0 text-xs text-muted-foreground">{selected.code}</span>
+              )}
             </span>
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
+          ) : (
+            <span className="text-muted-foreground">{placeholder}</span>
+          )}
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+        <Command
+          filter={(itemValue, search) => {
+            // itemValue = "<id> <nome> <code>" (ver value do CommandItem abaixo).
+            const needle = search.toLowerCase().trim();
+            return itemValue.toLowerCase().includes(needle) ? 1 : 0;
+          }}
+        >
+          <CommandInput placeholder="Buscar por nome ou código…" />
+          <CommandList>
+            <CommandEmpty>
+              Nenhuma categoria de {type === "EXPENSE" ? "despesa" : "receita"}.
+            </CommandEmpty>
+            <CommandGroup>
+              {categories.map((c) => (
+                <CommandItem
+                  key={c.id}
+                  value={`${c.id} ${c.name} ${c.code ?? ""}`}
+                  onSelect={() => {
+                    onChange(c.id);
+                    setOpen(false);
+                  }}
+                >
+                  <Check
+                    className={cn(
+                      "mr-2 h-4 w-4 shrink-0",
+                      value === c.id ? "opacity-100" : "opacity-0",
+                    )}
+                  />
+                  <span
+                    className={cn("flex min-w-0 flex-1 items-center gap-2", c.parentId && "pl-3")}
+                  >
+                    <span
+                      className="h-2.5 w-2.5 shrink-0 rounded-full"
+                      style={{ backgroundColor: c.color }}
+                    />
+                    <span className="truncate">{c.name}</span>
+                  </span>
+                  {c.code && (
+                    <span className="shrink-0 text-xs text-muted-foreground">{c.code}</span>
+                  )}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
   );
 }

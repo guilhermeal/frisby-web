@@ -64,12 +64,29 @@ export interface Category {
   id: string;
   name: string;
   type: TxType;
+  /** Código de atalho opcional (ex. "1.1.3"), único por entidade+tipo. */
+  code?: string;
   color: string;
   icon: string;
   /** null = categoria raiz; string = subcategoria (árvore de 1 nível). */
   parentId: string | null;
   /** Categorias de sistema só podem ser renomeadas. */
   isSystem: boolean;
+}
+
+export interface CategoryImportRow {
+  code: string;
+  type: TxType;
+  name: string;
+  action: "created" | "updated" | "skipped";
+  reason?: string;
+}
+
+export interface CategoryImportSummary {
+  created: number;
+  updated: number;
+  skipped: number;
+  rows: CategoryImportRow[];
 }
 
 export interface RecurrenceRule {

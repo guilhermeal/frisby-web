@@ -4,11 +4,12 @@
 
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { ChevronRight, Loader2, Lock, MoreVertical, Plus, Tags } from "lucide-react";
+import { ChevronRight, Loader2, Lock, MoreVertical, Plus, Tags, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell, PageHeader } from "@/components/frisby/app-shell";
 import { EmptyState } from "@/components/frisby/empty-state";
 import { CategoryForm } from "@/components/frisby/category-form";
+import { CategoryImportDialog } from "@/components/frisby/category-import-dialog";
 import { CategoryIcon } from "@/components/frisby/category-icon";
 import { ConfirmDialog } from "@/components/frisby/confirm-dialog";
 import { PermissionGate } from "@/components/frisby/permission-gate";
@@ -43,6 +44,7 @@ function CategoriasPage() {
   const { entity } = useCurrentEntity();
   const [tab, setTab] = useState<TxType>("EXPENSE");
   const [form, setForm] = useState<FormState>(null);
+  const [importing, setImporting] = useState(false);
 
   const categoriesQ = useCategories(entity?.id);
   const deleteCategory = useDeleteCategory(entity?.id);
@@ -79,6 +81,14 @@ function CategoriasPage() {
         subtitle="Organize despesas e receitas em até dois níveis"
         actions={
           <PermissionGate permission={PERMISSIONS.CATEGORY_MANAGE}>
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-1.5"
+              onClick={() => setImporting(true)}
+            >
+              <Upload className="h-4 w-4" /> <span className="hidden sm:inline">Importar</span>
+            </Button>
             <Button size="sm" className="gap-1.5" onClick={() => setForm({ mode: "create" })}>
               <Plus className="h-4 w-4" /> <span className="hidden sm:inline">Nova</span>
             </Button>
@@ -139,6 +149,8 @@ function CategoriasPage() {
         parent={form?.mode === "sub" ? form.parent : undefined}
         category={form?.mode === "edit" ? form.category : undefined}
       />
+
+      <CategoryImportDialog entityId={entity?.id} open={importing} onOpenChange={setImporting} />
     </AppShell>
   );
 }
@@ -229,6 +241,11 @@ function CategoryRow({
       </span>
       <span className="min-w-0 flex-1 truncate text-sm font-medium">
         {category.name}
+        {category.code && (
+          <span className="ml-1.5 font-mono text-xs font-normal text-muted-foreground">
+            {category.code}
+          </span>
+        )}
         {category.isSystem && (
           <Lock
             className="ml-1.5 inline h-3 w-3 text-muted-foreground"

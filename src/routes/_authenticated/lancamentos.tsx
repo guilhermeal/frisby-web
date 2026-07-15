@@ -289,8 +289,9 @@ function Lancamentos() {
                         />
                       </div>
                       <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                        {cat?.name ?? "sem categoria"} · {acc?.name ?? "sem conta"} ·{" "}
-                        {formatDate(t.competenceDate)}
+                        {cat?.name ?? "sem categoria"}
+                        {cat?.code && <span className="font-mono"> {cat.code}</span>} ·{" "}
+                        {acc?.name ?? "sem conta"} · {formatDate(t.competenceDate)}
                       </p>
                       <div className="mt-2 flex flex-wrap items-center gap-1.5">
                         <StatusPill status={t.status} overdue={overdue} />
@@ -349,6 +350,7 @@ function Lancamentos() {
                               style={{ backgroundColor: cat.color }}
                             />
                             {cat.name}
+                            {cat.code && <span className="font-mono opacity-70">{cat.code}</span>}
                           </span>
                         )}
                       </td>

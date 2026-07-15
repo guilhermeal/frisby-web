@@ -56,6 +56,7 @@ export function CategoryForm({
   const updateCategory = useUpdateCategory(entityId);
 
   const [name, setName] = useState("");
+  const [code, setCode] = useState("");
   const [color, setColor] = useState(CATEGORY_COLORS[0]);
   const [icon, setIcon] = useState("tag");
   const [error, setError] = useState<string | null>(null);
@@ -65,10 +66,12 @@ export function CategoryForm({
     setError(null);
     if (category) {
       setName(category.name);
+      setCode(category.code ?? "");
       setColor(category.color);
       setIcon(category.icon);
     } else {
       setName("");
+      setCode("");
       setColor(parent?.color ?? CATEGORY_COLORS[0]);
       setIcon(parent?.icon ?? "tag");
     }
@@ -83,6 +86,7 @@ export function CategoryForm({
         await updateCategory.mutateAsync({
           categoryId: category.id,
           name,
+          code: code || undefined,
           ...(isSystem ? {} : { color, icon }),
         });
         toast.success("Categoria atualizada");
@@ -91,6 +95,7 @@ export function CategoryForm({
           name,
           type: parent?.type ?? type,
           parentId: parent?.id,
+          code: code || undefined,
           color,
           icon,
         });
@@ -128,6 +133,22 @@ export function CategoryForm({
             placeholder="Ex.: Alimentação"
           />
         </div>
+
+        {!isSystem && (
+          <div className="space-y-1.5">
+            <Label htmlFor="category-code">Código (opcional)</Label>
+            <Input
+              id="category-code"
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+              placeholder="Ex.: 1.2"
+              className="font-mono"
+            />
+            <p className="text-xs text-muted-foreground">
+              Atalho de busca (ex. "1.2"). Único por tipo nesta entidade.
+            </p>
+          </div>
+        )}
 
         {!isSystem && (
           <>
