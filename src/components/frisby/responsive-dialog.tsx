@@ -61,12 +61,12 @@ export function ResponsiveDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className={cn("sm:max-w-lg", className)}>
+      <DialogContent className={cn("sm:max-w-2xl", className)}>
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           {description && <DialogDescription>{description}</DialogDescription>}
         </DialogHeader>
-        <div className="-mx-1 max-h-[70svh] overflow-y-auto px-1">{children}</div>
+        <div className="-mx-1 max-h-[70svh] overflow-y-auto px-2">{children}</div>
         {footer && <DialogFooter>{footer}</DialogFooter>}
       </DialogContent>
     </Dialog>

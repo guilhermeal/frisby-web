@@ -16,18 +16,37 @@ import type { Category, TxType } from "@/lib/api/types";
 import { cn } from "@/lib/utils";
 
 export const CATEGORY_COLORS = [
-  "#FF8A65",
-  "#FFD54F",
-  "#AED581",
-  "#4DB6AC",
-  "#4FC3F7",
-  "#7986CB",
-  "#BA68C8",
-  "#F06292",
-  "#A1887F",
-  "#90A4AE",
-  "#2E9E6B",
-  "#D2445A",
+  // ── Originais (mantidas) ──────────────────────────────────────────────
+  "#FF8A65", // laranja claro
+  "#FFD54F", // amarelo pastel
+  "#AED581", // verde claro
+  "#4DB6AC", // teal claro
+  "#4FC3F7", // azul claro
+  "#7986CB", // índigo claro
+  "#BA68C8", // roxo claro
+  "#F06292", // rosa
+  "#A1887F", // marrom claro
+  "#90A4AE", // azul-acinzentado claro
+  "#2E9E6B", // verde (marca)
+  "#D2445A", // vermelho (marca)
+  "#E53935", // vermelho vivo
+  "#EF6C00", // laranja queimado
+  "#F9A825", // mostarda/dourado
+  "#C0CA33", // verde-oliva / lima
+  "#2E7D32", // verde floresta
+  "#00796B", // teal escuro
+  "#006064", // ciano profundo
+  "#0288D1", // azul céu escuro
+  "#1565C0", // azul royal
+  "#283593", // índigo profundo
+  "#5E35B1", // violeta
+  "#8E24AA", // roxo magenta
+  "#AD1457", // framboesa
+  "#C2185B", // rosa escuro
+  "#6D4C41", // marrom café
+  "#455A64", // azul-acinzentado escuro (slate)
+  "#FFB300", // âmbar
+  "#37474F", // grafite
 ];
 
 interface CategoryFormProps {
