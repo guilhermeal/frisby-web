@@ -181,7 +181,7 @@ export function CategoryForm({
                     aria-label={`Cor ${c}`}
                     onClick={() => setColor(c)}
                     className={cn(
-                      "h-7 w-7 rounded-full transition-transform",
+                      "h-7 w-7 cursor-pointer rounded-full transition-transform",
                       color === c &&
                         "scale-110 ring-2 ring-ink ring-offset-2 ring-offset-background",
                     )}
@@ -201,7 +201,7 @@ export function CategoryForm({
                     aria-label={`Ícone ${slug}`}
                     onClick={() => setIcon(slug)}
                     className={cn(
-                      "grid h-9 w-9 place-items-center rounded-lg border transition-colors",
+                      "grid h-9 w-9 cursor-pointer place-items-center rounded-lg border transition-colors",
                       icon === slug
                         ? "border-ink bg-ink text-primary-foreground"
                         : "border-border bg-card text-muted-foreground hover:bg-secondary",

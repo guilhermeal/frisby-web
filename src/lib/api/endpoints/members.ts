@@ -29,10 +29,7 @@ export interface PublicInvitation {
 
 export const invitationsApi = {
   /** Criar convite para novo membro. */
-  create: async (
-    entityId: string,
-    body: { email: string; roleId: string },
-  ) => {
+  create: async (entityId: string, body: { email: string; roleId: string }) => {
     return api.post<{ id: string; email: string; status: string }>(
       `/entities/${entityId}/invitations`,
       body,

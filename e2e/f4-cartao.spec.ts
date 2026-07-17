@@ -146,9 +146,7 @@ test.describe.serial("F4 — ciclo da fatura do cartão", () => {
     await expect(page.getByText("Carteira Descartável F4")).toBeVisible();
 
     // Arquivar (sem movimento → permitido).
-    await page
-      .getByRole("button", { name: "Ações da conta Carteira Descartável F4" })
-      .click();
+    await page.getByRole("button", { name: "Ações da conta Carteira Descartável F4" }).click();
     await page.getByRole("menuitem", { name: "Arquivar" }).click();
     await page.getByRole("button", { name: "Arquivar", exact: true }).last().click();
     await expect(page.getByText("arquivada", { exact: false })).toBeVisible({ timeout: 10_000 });

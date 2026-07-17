@@ -97,6 +97,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 size="sm"
                 className="-ml-1 max-w-[45vw] gap-1.5 truncate"
                 disabled={!entity && !entitiesLoading}
+                title={entity?.name}
               >
                 <span className="hidden text-xs uppercase tracking-wider text-muted-foreground sm:inline">
                   {entity?.type === "COMPANY" ? "Empresa" : "Casa"}
@@ -124,7 +125,9 @@ export function AppShell({ children }: { children: ReactNode }) {
                   onClick={() => setCurrent(e.id)}
                   className="flex items-center justify-between"
                 >
-                  <span className="truncate">{e.name}</span>
+                  <span className="truncate" title={e.name}>
+                    {e.name}
+                  </span>
                   <span className="text-xs text-muted-foreground">
                     {e.type === "COMPANY" ? "Empresa" : "Casa"}
                   </span>
@@ -210,7 +213,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <button
-            className="fixed bottom-20 right-4 z-50 grid h-14 w-14 place-items-center rounded-full bg-ink text-primary-foreground shadow-[var(--shadow-lift)] transition-transform active:scale-95 lg:hidden"
+            className="fixed bottom-20 right-4 z-50 grid h-14 w-14 cursor-pointer place-items-center rounded-full bg-ink text-primary-foreground shadow-[var(--shadow-lift)] transition-transform active:scale-95 lg:hidden"
             aria-label="Novo lançamento"
           >
             <Plus className="h-6 w-6" />

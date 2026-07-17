@@ -90,7 +90,9 @@ function CardOverview({ card }: { card: Account }) {
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="truncate font-display text-base font-semibold">{card.name}</p>
+          <p className="truncate font-display text-base font-semibold" title={card.name}>
+            {card.name}
+          </p>
           <p className="mt-0.5 text-xs text-muted-foreground">
             limite {formatMoney(card.creditLimit ?? "0")} · fecha dia {card.closingDay}
           </p>

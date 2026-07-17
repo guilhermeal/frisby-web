@@ -209,11 +209,14 @@ export function AttachmentUploader({ target, disabled, compact }: AttachmentUplo
                       target="_blank"
                       rel="noreferrer"
                       className="truncate text-xs font-medium hover:underline"
+                      title={a.fileName}
                     >
                       {a.fileName}
                     </a>
                   ) : (
-                    <p className="truncate text-xs font-medium">{a.fileName}</p>
+                    <p className="truncate text-xs font-medium" title={a.fileName}>
+                      {a.fileName}
+                    </p>
                   )}
                   <p className="text-[10px] text-muted-foreground">{formatBytes(a.sizeBytes)}</p>
                 </div>

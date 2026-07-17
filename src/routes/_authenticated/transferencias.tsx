@@ -126,7 +126,7 @@ function TransferenciasPage() {
             key={id}
             onClick={() => setStatusFilter(id)}
             className={cn(
-              "rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
+              "cursor-pointer rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
               statusFilter === id
                 ? "border-ink bg-ink text-primary-foreground"
                 : "border-border bg-background text-muted-foreground hover:text-foreground",
@@ -186,7 +186,16 @@ function TransferenciasPage() {
                     <ArrowLeftRight className="h-4 w-4" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="flex items-center gap-1.5 truncate text-sm font-medium">
+                    <p
+                      className="flex items-center gap-1.5 truncate text-sm font-medium"
+                      title={
+                        isCrossEntity
+                          ? isThisEntityOrigin
+                            ? `${fromName ?? "esta conta"} → Transferência para ${otherEntityName ?? "outra entidade"}`
+                            : `Transferência de ${otherEntityName ?? "outra entidade"} → ${toName ?? "esta conta"}`
+                          : `${fromName ?? "?"} → ${toName ?? "?"}`
+                      }
+                    >
                       {isCrossEntity ? (
                         isThisEntityOrigin ? (
                           <>

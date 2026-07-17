@@ -40,13 +40,25 @@ export function CategorySelect({
   const categoriesQ = useCategories(entityId);
   // A lista flat preserva a ordem pai → filhos.
   const categories = useMemo(
-    () => (categoriesQ.data ?? []).filter((c) => c.type === type),
+    () =>
+      (categoriesQ.data ?? [])
+        .filter((c) => c.type === type)
+        .sort((a, b) => {
+          const partsA = (a.code ?? "").split(".").map(Number);
+          const partsB = (b.code ?? "").split(".").map(Number);
+          const len = Math.max(partsA.length, partsB.length);
+          for (let i = 0; i < len; i++) {
+            const diff = (partsA[i] ?? 0) - (partsB[i] ?? 0);
+            if (diff !== 0) return diff;
+          }
+          return 0;
+        }),
     [categoriesQ.data, type],
   );
   const selected = categories.find((c) => c.id === value);
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={setOpen} modal>
       <PopoverTrigger asChild>
         <Button
           variant="outline"
@@ -63,7 +75,9 @@ export function CategorySelect({
                 className="h-2.5 w-2.5 shrink-0 rounded-full"
                 style={{ backgroundColor: selected.color }}
               />
-              <span className="truncate">{selected.name}</span>
+              <span className="truncate" title={selected.name}>
+                {selected.name}
+              </span>
               {selected.code && (
                 <span className="shrink-0 text-xs text-muted-foreground">{selected.code}</span>
               )}
@@ -110,7 +124,9 @@ export function CategorySelect({
                       className="h-2.5 w-2.5 shrink-0 rounded-full"
                       style={{ backgroundColor: c.color }}
                     />
-                    <span className="truncate">{c.name}</span>
+                    <span className="truncate" title={c.name}>
+                      {c.name}
+                    </span>
                   </span>
                   {c.code && (
                     <span className="shrink-0 text-xs text-muted-foreground">{c.code}</span>

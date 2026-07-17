@@ -183,7 +183,9 @@ function Dashboard() {
                       <AlertCircle className="h-4 w-4" />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium">{t.description}</p>
+                      <p className="truncate text-sm font-medium" title={t.description}>
+                        {t.description}
+                      </p>
                       <p className="text-xs text-muted-foreground">
                         {cat?.name ?? "sem categoria"} · vence {formatDate(t.competenceDate)}
                       </p>
@@ -236,7 +238,9 @@ function Dashboard() {
                     {a.type === "CREDIT_CARD" ? "CC" : a.type[0]}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium">{a.name}</p>
+                    <p className="truncate text-sm font-medium" title={a.name}>
+                      {a.name}
+                    </p>
                     <p className="text-xs text-muted-foreground">
                       {accountTypeLabel(a.type)}
                       {a.type === "CREDIT_CARD" && a.creditLimit && (
@@ -297,8 +301,13 @@ function Dashboard() {
                       {(cat?.name ?? "??").slice(0, 2)}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium">{t.description}</p>
-                      <p className="truncate text-xs text-muted-foreground">
+                      <p className="truncate text-sm font-medium" title={t.description}>
+                        {t.description}
+                      </p>
+                      <p
+                        className="truncate text-xs text-muted-foreground"
+                        title={acc?.name ?? "sem conta definida"}
+                      >
                         {acc?.name ?? "sem conta definida"} · {formatDate(t.competenceDate)}
                       </p>
                     </div>

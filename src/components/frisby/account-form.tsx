@@ -131,7 +131,7 @@ export function AccountForm({ entity, open, onOpenChange, account }: AccountForm
                   type="button"
                   onClick={() => setType(t.type)}
                   className={cn(
-                    "flex flex-col items-center gap-1.5 rounded-xl border px-1 py-3 text-[11px] font-medium transition-colors",
+                    "flex cursor-pointer flex-col items-center gap-1.5 rounded-xl border px-1 py-3 text-[11px] font-medium transition-colors",
                     type === t.type
                       ? "border-ink bg-ink text-primary-foreground"
                       : "border-border bg-card hover:bg-secondary",

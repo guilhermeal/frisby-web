@@ -144,7 +144,7 @@ export function SplitBuilder({ members, total, value, onChange }: SplitBuilderPr
               if (id === "percent") recomputePercent(selectedIds, percents);
             }}
             className={cn(
-              "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+              "cursor-pointer rounded-full border px-3 py-1 text-xs font-medium transition-colors",
               mode === id
                 ? "border-ink bg-ink text-primary-foreground"
                 : "border-border bg-background text-muted-foreground hover:text-foreground",
@@ -174,7 +174,9 @@ export function SplitBuilder({ members, total, value, onChange }: SplitBuilderPr
                 <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-brand-soft text-[10px] font-semibold text-ink">
                   {member.initials}
                 </span>
-                <span className="truncate">{member.displayName}</span>
+                <span className="truncate" title={member.displayName}>
+                  {member.displayName}
+                </span>
               </label>
               {selected && mode === "percent" && (
                 <div className="flex w-20 items-center gap-1">

@@ -348,7 +348,7 @@ export function TransactionForm({
                 type="button"
                 onClick={() => changeType(id)}
                 className={cn(
-                  "rounded-lg py-1.5 text-sm font-medium transition-colors",
+                  "cursor-pointer rounded-lg py-1.5 text-sm font-medium transition-colors",
                   type === id ? "bg-background shadow-sm" : "text-muted-foreground",
                 )}
               >
@@ -418,7 +418,7 @@ export function TransactionForm({
                   type="button"
                   onClick={() => setStatus(id)}
                   className={cn(
-                    "rounded-lg py-1.5 text-sm font-medium transition-colors",
+                    "cursor-pointer rounded-lg py-1.5 text-sm font-medium transition-colors",
                     status === id ? "bg-background shadow-sm" : "text-muted-foreground",
                   )}
                 >
@@ -453,7 +453,7 @@ export function TransactionForm({
                   if (id === "ENTITY") setShares([]);
                 }}
                 className={cn(
-                  "rounded-lg py-1.5 text-sm font-medium transition-colors",
+                  "cursor-pointer rounded-lg py-1.5 text-sm font-medium transition-colors",
                   scope === id ? "bg-background shadow-sm" : "text-muted-foreground",
                 )}
               >

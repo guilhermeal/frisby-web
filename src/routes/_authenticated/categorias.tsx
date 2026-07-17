@@ -23,6 +23,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useCategories, useDeleteCategory } from "@/hooks/api";
 import { useCurrentEntity } from "@/lib/auth/use-current-entity";
 import { PERMISSIONS } from "@/lib/auth/use-permissions";
@@ -40,19 +47,39 @@ type FormState =
   | { mode: "edit"; category: Category }
   | null;
 
+type SortBy = "name" | "code";
+
+function sortCategories(list: Category[], sortBy: SortBy): Category[] {
+  return [...list].sort((a, b) => {
+    if (sortBy === "code") {
+      const ac = a.code ?? "";
+      const bc = b.code ?? "";
+      if (!ac && !bc) return a.name.localeCompare(b.name, "pt-BR");
+      if (!ac) return 1;
+      if (!bc) return -1;
+      return ac.localeCompare(bc, "pt-BR", { numeric: true });
+    }
+    return a.name.localeCompare(b.name, "pt-BR");
+  });
+}
+
 function CategoriasPage() {
   const { entity } = useCurrentEntity();
   const [tab, setTab] = useState<TxType>("EXPENSE");
   const [form, setForm] = useState<FormState>(null);
   const [importing, setImporting] = useState(false);
+  const [sortBy, setSortBy] = useState<SortBy>("name");
 
   const categoriesQ = useCategories(entity?.id);
   const deleteCategory = useDeleteCategory(entity?.id);
 
-  // Reconstrói a árvore a partir da lista flat (ordem pai→filhos preservada).
+  // Reconstrói a árvore a partir da lista flat, ordenando pais e filhos pelo mesmo critério.
   const tree = useMemo(() => {
     const all = (categoriesQ.data ?? []).filter((c) => c.type === tab);
-    const roots = all.filter((c) => !c.parentId);
+    const roots = sortCategories(
+      all.filter((c) => !c.parentId),
+      sortBy,
+    );
     const children = new Map<string, Category[]>();
     for (const c of all) {
       if (c.parentId) {
@@ -61,8 +88,11 @@ function CategoriasPage() {
         children.set(c.parentId, list);
       }
     }
+    for (const [key, list] of children) {
+      children.set(key, sortCategories(list, sortBy));
+    }
     return { roots, children };
-  }, [categoriesQ.data, tab]);
+  }, [categoriesQ.data, tab, sortBy]);
 
   async function handleDelete(category: Category) {
     try {
@@ -97,12 +127,24 @@ function CategoriasPage() {
       />
 
       <div className="mx-4 space-y-4 sm:mx-6 lg:mx-0">
-        <Tabs value={tab} onValueChange={(v) => setTab(v as TxType)}>
-          <TabsList>
-            <TabsTrigger value="EXPENSE">Despesas</TabsTrigger>
-            <TabsTrigger value="INCOME">Receitas</TabsTrigger>
-          </TabsList>
-        </Tabs>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <Tabs value={tab} onValueChange={(v) => setTab(v as TxType)}>
+            <TabsList>
+              <TabsTrigger value="EXPENSE">Despesas</TabsTrigger>
+              <TabsTrigger value="INCOME">Receitas</TabsTrigger>
+            </TabsList>
+          </Tabs>
+
+          <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortBy)}>
+            <SelectTrigger className="w-40">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="name">Ordenar por nome</SelectItem>
+              <SelectItem value="code">Ordenar por código</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
 
         {categoriesQ.isLoading ? (
           <div className="flex items-center justify-center gap-2 rounded-2xl border border-border/60 bg-card p-10 text-sm text-muted-foreground">
@@ -180,7 +222,7 @@ function CategoryNode({
           <CollapsibleTrigger asChild>
             <button
               className={cn(
-                "grid h-6 w-6 place-items-center rounded-md text-muted-foreground transition-transform hover:bg-secondary",
+                "grid h-6 w-6 cursor-pointer place-items-center rounded-md text-muted-foreground transition-transform hover:bg-secondary",
                 open && "rotate-90",
                 !hasChildren && "invisible",
               )}
@@ -239,7 +281,7 @@ function CategoryRow({
       >
         <CategoryIcon slug={category.icon} className="h-3.5 w-3.5" />
       </span>
-      <span className="min-w-0 flex-1 truncate text-sm font-medium">
+      <span className="min-w-0 flex-1 truncate text-sm font-medium" title={category.name}>
         {category.name}
         {category.code && (
           <span className="ml-1.5 font-mono text-xs font-normal text-muted-foreground">

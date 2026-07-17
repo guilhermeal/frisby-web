@@ -263,7 +263,7 @@ export function TransferForm({
               type="button"
               onClick={() => setStatus(id)}
               className={cn(
-                "rounded-lg py-1.5 text-sm font-medium transition-colors",
+                "cursor-pointer rounded-lg py-1.5 text-sm font-medium transition-colors",
                 status === id ? "bg-background shadow-sm" : "text-muted-foreground",
               )}
             >

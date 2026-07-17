@@ -199,7 +199,7 @@ function TypeCard({
       type="button"
       onClick={onClick}
       className={cn(
-        "rounded-2xl border p-4 text-left transition-colors",
+        "cursor-pointer rounded-2xl border p-4 text-left transition-colors",
         active
           ? "border-ink bg-ink text-primary-foreground"
           : "border-border bg-card hover:bg-secondary",
@@ -272,7 +272,7 @@ function AccountStep({ entity }: { entity: Entity }) {
               type="button"
               onClick={() => setType(t.type)}
               className={cn(
-                "flex flex-col items-center gap-1.5 rounded-xl border px-2 py-3 text-xs font-medium transition-colors",
+                "flex cursor-pointer flex-col items-center gap-1.5 rounded-xl border px-2 py-3 text-xs font-medium transition-colors",
                 type === t.type
                   ? "border-ink bg-ink text-primary-foreground"
                   : "border-border bg-card hover:bg-secondary",

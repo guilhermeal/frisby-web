@@ -51,7 +51,7 @@ export const MoneyInput = forwardRef<HTMLInputElement, MoneyInputProps>(function
           aria-label={isNegative ? "Tornar positivo" : "Tornar negativo (estorno)"}
           aria-pressed={isNegative}
           className={cn(
-            "absolute left-2 top-1/2 grid h-6 w-6 -translate-y-1/2 place-items-center rounded-md border text-xs transition-colors",
+            "absolute left-2 top-1/2 grid h-6 w-6 -translate-y-1/2 cursor-pointer place-items-center rounded-md border text-xs transition-colors",
             isNegative
               ? "border-expense bg-expense/10 text-expense"
               : "border-border text-muted-foreground hover:bg-secondary",

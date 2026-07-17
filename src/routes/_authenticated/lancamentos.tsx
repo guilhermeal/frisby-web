@@ -225,7 +225,7 @@ function Lancamentos() {
               key={id}
               onClick={() => setFilter(id)}
               className={cn(
-                "shrink-0 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
+                "shrink-0 cursor-pointer rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
                 activeFilter === id
                   ? "border-ink bg-ink text-primary-foreground"
                   : "border-border bg-background text-muted-foreground hover:text-foreground",
@@ -280,7 +280,9 @@ function Lancamentos() {
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-start justify-between gap-3">
-                        <p className="truncate text-sm font-medium">{t.description}</p>
+                        <p className="truncate text-sm font-medium" title={t.description}>
+                          {t.description}
+                        </p>
                         <MoneyText
                           cents={t.amount}
                           kind={t.type === "INCOME" ? "income" : "expense"}
@@ -288,7 +290,10 @@ function Lancamentos() {
                           sign
                         />
                       </div>
-                      <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                      <p
+                        className="mt-0.5 truncate text-xs text-muted-foreground"
+                        title={`${cat?.name ?? "sem categoria"} · ${acc?.name ?? "sem conta"}`}
+                      >
                         {cat?.name ?? "sem categoria"}
                         {cat?.code && <span className="font-mono"> {cat.code}</span>} ·{" "}
                         {acc?.name ?? "sem conta"} · {formatDate(t.competenceDate)}

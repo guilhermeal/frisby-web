@@ -44,7 +44,7 @@ export function MonthPicker({ value, onChange, className }: MonthPickerProps) {
       </Button>
       <button
         type="button"
-        className="min-w-32 px-2 text-center text-sm font-medium capitalize"
+        className="min-w-32 cursor-pointer px-2 text-center text-sm font-medium capitalize"
         onClick={() => onChange(currentMonth())}
         title="Voltar ao mês atual"
       >

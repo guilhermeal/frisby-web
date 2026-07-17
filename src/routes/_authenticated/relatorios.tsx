@@ -249,7 +249,9 @@ function ByCategoryPanel({ entityId }: { entityId: string | undefined }) {
             {byCat.map((c) => (
               <li key={c.name} className="flex items-center gap-2 text-sm">
                 <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: c.fill }} />
-                <span className="flex-1 truncate">{c.name}</span>
+                <span className="flex-1 truncate" title={c.name}>
+                  {c.name}
+                </span>
                 <MoneyText cents={String(c.value)} kind="expense" className="text-xs" />
               </li>
             ))}
@@ -288,7 +290,9 @@ function ByMemberPanel({ entityId }: { entityId: string | undefined }) {
         <ul className="space-y-3">
           {rows.map((m) => (
             <li key={m.membershipId} className="flex items-center justify-between text-sm">
-              <span className="truncate">{m.name}</span>
+              <span className="truncate" title={m.name}>
+                {m.name}
+              </span>
               <div className="flex items-center gap-3 text-xs">
                 <MoneyText cents={m.income} kind="income" />
                 <MoneyText cents={m.expense} kind="expense" />
@@ -352,7 +356,9 @@ function RecurringVsOneoffPanel({ entityId }: { entityId: string | undefined }) 
             {data.map((d) => (
               <li key={d.name} className="flex items-center gap-2 text-sm">
                 <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: d.fill }} />
-                <span className="flex-1 truncate">{d.name}</span>
+                <span className="flex-1 truncate" title={d.name}>
+                  {d.name}
+                </span>
                 <MoneyText cents={String(d.value)} className="text-xs" />
               </li>
             ))}
@@ -443,7 +449,9 @@ function BalancesPanel({ entityId }: { entityId: string | undefined }) {
               <ul className="space-y-1">
                 {g.accounts.map((a) => (
                   <li key={a.id} className="flex items-center justify-between text-sm">
-                    <span className="truncate">{a.name}</span>
+                    <span className="truncate" title={a.name}>
+                      {a.name}
+                    </span>
                     <MoneyText
                       cents={a.balanceBase}
                       kind={g.type === "CREDIT_CARD" ? "expense" : "neutral"}

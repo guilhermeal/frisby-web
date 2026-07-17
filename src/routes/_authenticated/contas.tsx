@@ -124,7 +124,10 @@ function ContasPage() {
                       >
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
-                            <p className="truncate font-display text-base font-semibold">
+                            <p
+                              className="truncate font-display text-base font-semibold"
+                              title={a.name}
+                            >
                               {a.name}
                             </p>
                             <p className="mt-0.5 text-xs text-muted-foreground">
