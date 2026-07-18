@@ -184,6 +184,7 @@ export function AccountForm({ entity, open, onOpenChange, account }: AccountForm
               id="account-form-balance"
               value={initialBalance}
               onChange={setInitialBalance}
+              allowNegative
             />
           </div>
         )}
