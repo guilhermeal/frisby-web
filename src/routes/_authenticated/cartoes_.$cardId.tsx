@@ -422,18 +422,34 @@ function InvoiceDetailDialog({
             {invoice.purchases.length === 0 ? (
               <p className="text-xs text-muted-foreground">Nenhuma compra neste ciclo.</p>
             ) : (
-              <ul className="space-y-1.5 text-sm">
+              <ul className="space-y-2 text-sm">
                 {invoice.purchases.map((p) => (
                   <li key={p.txId} className="flex items-center justify-between gap-2">
-                    <span className="min-w-0 truncate text-muted-foreground">
-                      {p.description || "Compra"}
-                      {p.installment && (
-                        <Badge variant="secondary" className="ml-1.5 text-[10px]">
-                          {p.installment}
-                        </Badge>
-                      )}
-                    </span>
-                    <MoneyText cents={p.amount} kind="expense" className="text-xs" />
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className="min-w-0 truncate text-muted-foreground">
+                          {p.description || "Compra"}
+                        </span>
+                        {p.installment && (
+                          <Badge variant="secondary" className="shrink-0 text-[10px]">
+                            {p.installment}
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="mt-0.5 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                        <span>{formatDate(p.date)}</span>
+                        {p.category && (
+                          <span className="flex items-center gap-1">
+                            <span
+                              className="h-1.5 w-1.5 rounded-full"
+                              style={{ backgroundColor: p.category.color ?? undefined }}
+                            />
+                            {p.category.name}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <MoneyText cents={p.amount} kind="expense" className="shrink-0 text-xs" />
                   </li>
                 ))}
               </ul>

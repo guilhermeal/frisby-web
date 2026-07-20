@@ -522,10 +522,9 @@ export function TransactionBulkImportDialog({
                           <tr
                             key={idx}
                             className={cn(
-                              "border-t border-border/40",
+                              "border-t border-border/40 hover:bg-secondary/40",
                               !row.valid && "bg-expense/5",
                               row.valid && dup && "bg-warning/10",
-                              "hover:bg-accent-foreground/10",
                             )}
                             title={row.reason}
                           >

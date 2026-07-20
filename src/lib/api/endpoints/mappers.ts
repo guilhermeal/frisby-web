@@ -86,6 +86,8 @@ export interface ApiTransaction {
   /** Preenchido quando a transação é PERNA de uma transferência. */
   transferId: string | null;
   hasAttachments?: boolean;
+  /** Presente só quando a rota faz include de category (ex.: detalhe de fatura). */
+  category?: { id: string; name: string; color: string | null; icon: string | null } | null;
 }
 
 export interface ApiInvoicePayment {
@@ -273,10 +275,19 @@ export function mapInvoice(inv: ApiInvoice, purchases: ApiTransaction[] = []): I
       txId: t.id,
       description: t.description ?? "",
       amount: t.amount,
+      date: dateOnly(t.competenceDate),
       installment:
         t.installmentNumber && t.installmentTotal
           ? `${t.installmentNumber}/${t.installmentTotal}`
           : undefined,
+      category: t.category
+        ? {
+            id: t.category.id,
+            name: t.category.name,
+            color: t.category.color,
+            icon: t.category.icon,
+          }
+        : undefined,
     })),
     payments: (inv.invoicePayments ?? []).map(mapPayment),
   };
