@@ -10,6 +10,16 @@ export function formatDate(iso: string, locale = "pt-BR"): string {
   }).format(new Date(iso));
 }
 
+/** DD/MM/YYYY — usado onde a data precisa do ano por extenso em formato curto. */
+export function formatDateNumeric(iso: string, locale = "pt-BR"): string {
+  return new Intl.DateTimeFormat(locale, {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(new Date(iso));
+}
+
 export function formatLongDate(iso: string, locale = "pt-BR"): string {
   return new Intl.DateTimeFormat(locale, {
     day: "2-digit",

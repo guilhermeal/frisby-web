@@ -185,7 +185,13 @@ export interface InvoicePurchase {
   installment?: string;
   /** Data da compra/parcela (competenceDate), YYYY-MM-DD. */
   date: string;
-  category?: { id: string; name: string; color: string | null; icon: string | null };
+  category?: {
+    id: string;
+    name: string;
+    color: string | null;
+    icon: string | null;
+    parentId: string | null;
+  };
 }
 
 export interface InvoicePayment {

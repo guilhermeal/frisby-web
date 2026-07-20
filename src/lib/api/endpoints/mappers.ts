@@ -87,7 +87,13 @@ export interface ApiTransaction {
   transferId: string | null;
   hasAttachments?: boolean;
   /** Presente só quando a rota faz include de category (ex.: detalhe de fatura). */
-  category?: { id: string; name: string; color: string | null; icon: string | null } | null;
+  category?: {
+    id: string;
+    name: string;
+    color: string | null;
+    icon: string | null;
+    parentId: string | null;
+  } | null;
 }
 
 export interface ApiInvoicePayment {
@@ -286,6 +292,7 @@ export function mapInvoice(inv: ApiInvoice, purchases: ApiTransaction[] = []): I
             name: t.category.name,
             color: t.category.color,
             icon: t.category.icon,
+            parentId: t.category.parentId,
           }
         : undefined,
     })),
