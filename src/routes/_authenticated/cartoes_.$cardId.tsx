@@ -1,5 +1,5 @@
-// Detalhe do cartão: barra de limite, fatura aberta destacada, histórico,
-// próximas faturas (projeção por parcelas) e ciclo de fechamento/pagamento.
+// Detalhe do cartão: barra de limite, fatura corrente destacada, lista de
+// faturas com filtro de status, e próximas faturas projetadas por parcelas.
 // Fatura CLOSED/PAID é imutável (invariante 7) — itens somente leitura.
 
 import { createFileRoute, Link } from "@tanstack/react-router";
@@ -28,13 +28,42 @@ import {
 import { useCurrentEntity } from "@/lib/auth/use-current-entity";
 import { apiErrorMessage } from "@/lib/api/error-messages";
 import { formatMoney, pct, subCents } from "@/lib/money";
-import { formatDate, formatMonth } from "@/lib/format";
+import { formatDate, formatMonth, todayISO } from "@/lib/format";
 import type { Invoice } from "@/lib/api/types";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/cartoes_/$cardId")({
   component: CardDetailPage,
 });
+
+type StatusFilter = "all" | "unpaid" | "paid";
+
+const STATUS_FILTERS: Array<[StatusFilter, string]> = [
+  ["all", "Todas"],
+  ["unpaid", "Em aberto"],
+  ["paid", "Pagas"],
+];
+
+/**
+ * A "fatura corrente" é a do ciclo de hoje pelo calendário: entre as OPEN,
+ * a de menor closingDate que ainda não passou (o ciclo em andamento agora).
+ * Faturas antigas ainda OPEN por falta de fechamento automático NÃO viram a
+ * corrente — ficam na lista normal, marcadas "Vencida", aguardando o usuário
+ * fechá-las manualmente. Se nenhuma OPEN cobre hoje (todas já venceram), cai
+ * na mais recente entre as pendentes como fallback.
+ */
+function pickCurrentInvoice(invoices: Invoice[]): Invoice | undefined {
+  const unpaid = invoices.filter((i) => i.status !== "PAID");
+  if (unpaid.length === 0) return undefined;
+
+  const today = todayISO();
+  const currentCycle = unpaid
+    .filter((i) => i.status === "OPEN" && i.closingDate >= today)
+    .sort((a, b) => a.closingDate.localeCompare(b.closingDate))[0];
+  if (currentCycle) return currentCycle;
+
+  return [...unpaid].sort((a, b) => b.month.localeCompare(a.month))[0];
+}
 
 function CardDetailPage() {
   const { cardId } = Route.useParams();
@@ -50,17 +79,25 @@ function CardDetailPage() {
 
   const [paying, setPaying] = useState<Invoice | null>(null);
   const [detailId, setDetailId] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
 
   const invoices = invoicesQ.data ?? [];
-  const openInvoice = useMemo(
+  const currentInvoice = useMemo(() => pickCurrentInvoice(invoices), [invoices]);
+
+  // Lista principal = tudo exceto a fatura já destacada como corrente,
+  // sempre ordenada do mês mais recente para o mais antigo.
+  const otherInvoices = useMemo(
     () =>
-      invoices.find((i) => i.status === "OPEN" || i.status === "CLOSED" || i.status === "PARTIAL"),
-    [invoices],
+      [...invoices]
+        .filter((i) => i.id !== currentInvoice?.id)
+        .sort((a, b) => b.month.localeCompare(a.month)),
+    [invoices, currentInvoice],
   );
-  const history = useMemo(
-    () => invoices.filter((i) => i.id !== openInvoice?.id),
-    [invoices, openInvoice],
-  );
+  const filteredInvoices = useMemo(() => {
+    if (statusFilter === "all") return otherInvoices;
+    if (statusFilter === "paid") return otherInvoices.filter((i) => i.status === "PAID");
+    return otherInvoices.filter((i) => i.status !== "PAID");
+  }, [otherInvoices, statusFilter]);
 
   async function handleClose(invoice: Invoice) {
     try {
@@ -134,17 +171,17 @@ function CardDetailPage() {
           <div className="flex items-center justify-center gap-2 rounded-2xl border border-border/60 bg-card p-10 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" /> Carregando faturas…
           </div>
-        ) : openInvoice ? (
+        ) : currentInvoice ? (
           <div className="rounded-2xl border-2 border-brand/40 bg-card p-5">
             <p className="mb-3 text-xs font-medium uppercase tracking-wider text-brand">
               Fatura corrente
             </p>
             <InvoiceRow
-              invoice={openInvoice}
+              invoice={currentInvoice}
               highlight
-              onPay={() => setPaying(openInvoice)}
-              onCloseInvoice={() => handleClose(openInvoice)}
-              onDetail={() => setDetailId(openInvoice.id)}
+              onPay={() => setPaying(currentInvoice)}
+              onCloseInvoice={() => handleClose(currentInvoice)}
+              onDetail={() => setDetailId(currentInvoice.id)}
             />
           </div>
         ) : (
@@ -155,20 +192,43 @@ function CardDetailPage() {
           />
         )}
 
-        {/* Histórico + próximas */}
+        {/* Demais faturas + próximas */}
         <Tabs defaultValue="history">
-          <TabsList>
-            <TabsTrigger value="history">Histórico</TabsTrigger>
-            <TabsTrigger value="upcoming">Próximas</TabsTrigger>
-          </TabsList>
-          <TabsContent value="history" className="mt-3">
-            {history.length === 0 ? (
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <TabsList>
+              <TabsTrigger value="history">Faturas</TabsTrigger>
+              <TabsTrigger value="upcoming">Projeção futura</TabsTrigger>
+            </TabsList>
+          </div>
+
+          <TabsContent value="history" className="mt-3 space-y-3">
+            {otherInvoices.length > 1 && (
+              <div className="-mx-1 flex flex-wrap gap-1.5 overflow-x-auto pb-1">
+                {STATUS_FILTERS.map(([id, label]) => (
+                  <button
+                    key={id}
+                    onClick={() => setStatusFilter(id)}
+                    className={cn(
+                      "shrink-0 cursor-pointer rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
+                      statusFilter === id
+                        ? "border-ink bg-ink text-primary-foreground"
+                        : "border-border bg-background text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )}
+            {filteredInvoices.length === 0 ? (
               <p className="rounded-xl border border-dashed border-border/70 p-6 text-center text-xs text-muted-foreground">
-                Sem faturas anteriores.
+                {otherInvoices.length === 0
+                  ? "Sem outras faturas."
+                  : "Nenhuma fatura nesse filtro."}
               </p>
             ) : (
               <ul className="space-y-2.5">
-                {history.map((inv) => (
+                {filteredInvoices.map((inv) => (
                   <li key={inv.id} className="rounded-2xl border border-border/60 bg-card p-4">
                     <InvoiceRow
                       invoice={inv}
@@ -181,32 +241,36 @@ function CardDetailPage() {
               </ul>
             )}
           </TabsContent>
+
           <TabsContent value="upcoming" className="mt-3">
             {upcomingQ.isLoading ? (
               <Skeleton className="h-20 w-full" />
             ) : (upcomingQ.data ?? []).length === 0 ? (
               <p className="rounded-xl border border-dashed border-border/70 p-6 text-center text-xs text-muted-foreground">
-                Nenhuma fatura futura projetada — parcelas criam projeções automaticamente.
+                Nenhuma fatura futura projetada além da fatura corrente — parcelas criam projeções
+                automaticamente.
               </p>
             ) : (
               <ul className="space-y-2.5">
-                {(upcomingQ.data ?? []).map((u) => (
-                  <li
-                    key={u.month}
-                    className="flex items-center justify-between rounded-2xl border border-dashed border-border/70 bg-background/40 p-4"
-                  >
-                    <div>
-                      <p className="text-sm font-medium capitalize">
-                        {formatMonth(`${u.month}-01`)}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        Projeção · {u.transactionCount}{" "}
-                        {u.transactionCount === 1 ? "lançamento" : "lançamentos"}
-                      </p>
-                    </div>
-                    <MoneyText cents={u.projectedTotal} className="text-sm" />
-                  </li>
-                ))}
+                {[...(upcomingQ.data ?? [])]
+                  .sort((a, b) => a.month.localeCompare(b.month))
+                  .map((u) => (
+                    <li
+                      key={u.month}
+                      className="flex items-center justify-between rounded-2xl border border-dashed border-border/70 bg-background/40 p-4"
+                    >
+                      <div>
+                        <p className="text-sm font-medium capitalize">
+                          {formatMonth(`${u.month}-01`)}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Projeção · {u.transactionCount}{" "}
+                          {u.transactionCount === 1 ? "lançamento" : "lançamentos"}
+                        </p>
+                      </div>
+                      <MoneyText cents={u.projectedTotal} className="text-sm" />
+                    </li>
+                  ))}
               </ul>
             )}
           </TabsContent>
@@ -242,6 +306,10 @@ function InvoiceRow({
   const paid = invoicePaidTotal(invoice);
   const remaining = subCents(invoice.calculatedAmount, paid);
   const payable = invoice.status === "CLOSED" || invoice.status === "PARTIAL";
+  // Fatura OPEN cuja data de fechamento já passou — deveria ter fechado
+  // sozinha; mostrar como "Vencida" em vez de "Aberta" evita confundir com
+  // uma fatura futura genuína.
+  const overdueOpen = invoice.status === "OPEN" && invoice.closingDate < todayISO();
 
   return (
     <div>
@@ -260,7 +328,7 @@ function InvoiceRow({
             fecha {formatDate(invoice.closingDate)} · vence {formatDate(invoice.dueDate)}
           </p>
         </div>
-        <StatusPill status={invoice.status} />
+        <StatusPill status={invoice.status} overdue={overdueOpen} />
       </div>
 
       {BigInt(invoice.carriedBalance) !== 0n && (

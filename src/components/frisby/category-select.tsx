@@ -26,6 +26,7 @@ interface CategorySelectProps {
   onChange: (categoryId: string) => void;
   placeholder?: string;
   disabled?: boolean;
+  className?: string;
 }
 
 export function CategorySelect({
@@ -35,6 +36,7 @@ export function CategorySelect({
   onChange,
   placeholder = "Escolha uma categoria",
   disabled,
+  className,
 }: CategorySelectProps) {
   const [open, setOpen] = useState(false);
   const categoriesQ = useCategories(entityId);
@@ -65,7 +67,7 @@ export function CategorySelect({
           role="combobox"
           aria-expanded={open}
           disabled={disabled || categoriesQ.isLoading}
-          className="w-full justify-between font-normal"
+          className={cn("w-full justify-between font-normal", className)}
         >
           {categoriesQ.isLoading ? (
             "Carregando…"

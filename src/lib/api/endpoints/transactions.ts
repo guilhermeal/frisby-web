@@ -3,7 +3,16 @@
 // (/entities/:id/installments) — no backend são recursos separados.
 
 import { api } from "../client";
-import type { RecurrenceRule, Transaction, TransactionFilters, TxScope, TxType } from "../types";
+import type {
+  RecurrenceRule,
+  Transaction,
+  TransactionBulkCategorizeSummary,
+  TransactionBulkImportRow,
+  TransactionBulkImportSummary,
+  TransactionFilters,
+  TxScope,
+  TxType,
+} from "../types";
 import { dateOnly, mapTransaction, monthRange, type ApiTransaction } from "./mappers";
 
 function toApiShares(shares: NonNullable<Transaction["shares"]>) {
@@ -91,6 +100,30 @@ export const transactionsApi = {
     const tx = await api.post<ApiTransaction>(`/transactions/${id}/unsettle`, {});
     return mapTransaction(tx);
   },
+  /**
+   * Importação em massa de histórico (Sprint 4.6, Parte A) — cada linha vira
+   * uma Transaction SETTLED independente. Resposta parcial: created/failed.
+   */
+  bulkImport: (
+    entityId: string,
+    body: {
+      type: TxType;
+      accountId: string;
+      defaultCategoryId?: string;
+      defaultScope: TxScope;
+      rows: TransactionBulkImportRow[];
+    },
+  ): Promise<TransactionBulkImportSummary> =>
+    api.post<TransactionBulkImportSummary>(`/entities/${entityId}/transactions/bulk`, body),
+  /** Aplica a mesma categoria a N lançamentos de uma vez. Resposta parcial. */
+  bulkCategorize: (
+    entityId: string,
+    body: { transactionIds: string[]; categoryId: string },
+  ): Promise<TransactionBulkCategorizeSummary> =>
+    api.patch<TransactionBulkCategorizeSummary>(
+      `/entities/${entityId}/transactions/bulk-categorize`,
+      body,
+    ),
 };
 
 // ---------------------------------------------------------------------------
@@ -197,6 +230,18 @@ export interface CreateInstallmentsBody {
   shares?: Array<{ memberId: string; shareAmount: string }>;
 }
 
+export interface ResumeInstallmentsBody {
+  accountId: string;
+  categoryId: string;
+  description?: string;
+  installmentAmount: string;
+  installmentTotal: number; // total original da compra, não a quantidade restante
+  resumeFromNumber: number; // 1 <= resumeFromNumber <= installmentTotal
+  nextCompetenceDate: string;
+  scope: TxScope;
+  shares?: Array<{ memberId: string; shareAmount: string }>;
+}
+
 export const installmentsApi = {
   create: async (
     entityId: string,
@@ -223,4 +268,26 @@ export const installmentsApi = {
     api.delete<{ cancelled: number; message: string }>(
       `/entities/${entityId}/installments/${groupId}/cancel`,
     ),
+  /**
+   * Continua um parcelamento que já estava em andamento antes de entrar no
+   * sistema (Sprint 4.6, Parte C) — gera só as parcelas restantes, com um
+   * installmentGroupId novo (as parcelas já pagas antes não aparecem no
+   * histórico, não há o que linkar).
+   */
+  resume: async (
+    entityId: string,
+    body: ResumeInstallmentsBody,
+  ): Promise<{ installmentGroupId: string; transactions: Transaction[] }> => {
+    const created = await api.post<{
+      installmentGroupId: string;
+      transactions: ApiTransaction[];
+    }>(`/entities/${entityId}/transactions/resume-installment`, {
+      ...body,
+      shares: body.shares?.length ? toApiShares(body.shares) : undefined,
+    });
+    return {
+      installmentGroupId: created.installmentGroupId,
+      transactions: created.transactions.map(mapTransaction),
+    };
+  },
 };

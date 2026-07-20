@@ -5,7 +5,17 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { z } from "zod";
-import { Loader2, MoreVertical, Paperclip, Plus, Search } from "lucide-react";
+import {
+  CheckSquare,
+  Loader2,
+  MoreVertical,
+  Paperclip,
+  Plus,
+  RefreshCw,
+  Search,
+  Upload,
+  X,
+} from "lucide-react";
 import { toast } from "sonner";
 import { AppShell, PageHeader } from "@/components/frisby/app-shell";
 import { MoneyText } from "@/components/frisby/money-text";
@@ -16,8 +26,12 @@ import { TransactionForm } from "@/components/frisby/transaction-form";
 import { SettleDialog } from "@/components/frisby/settle-dialog";
 import { ConfirmDialog } from "@/components/frisby/confirm-dialog";
 import { PermissionGate } from "@/components/frisby/permission-gate";
+import { CategorySelect } from "@/components/frisby/category-select";
+import { TransactionBulkImportDialog } from "@/components/frisby/transaction-bulk-import-dialog";
+import { ResumeInstallmentsDialog } from "@/components/frisby/resume-installments-dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -37,6 +51,7 @@ import {
   useTransactions,
   useDeleteTransaction,
   useUnsettleTransaction,
+  useBulkCategorize,
 } from "@/hooks/api";
 import { apiErrorMessage } from "@/lib/api/error-messages";
 import { formatDate, currentMonth, todayISO } from "@/lib/format";
@@ -101,11 +116,19 @@ function Lancamentos() {
 
   const deleteTx = useDeleteTransaction(entity?.id);
   const unsettleTx = useUnsettleTransaction(entity?.id);
+  const bulkCategorize = useBulkCategorize(entity?.id);
 
   // Diálogos
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<Transaction | null>(null);
   const [settling, setSettling] = useState<Transaction | null>(null);
+  const [importing, setImporting] = useState(false);
+  const [resuming, setResuming] = useState(false);
+
+  // Seleção em lote (Sprint 4.6, Parte B)
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkCategoryId, setBulkCategoryId] = useState<string | undefined>(undefined);
 
   const categoryMap = useMemo(() => {
     const m = new Map<string, Category>();
@@ -160,6 +183,39 @@ function Lancamentos() {
     }
   }
 
+  function toggleSelectionMode() {
+    setSelectionMode((v) => !v);
+    setSelectedIds(new Set());
+    setBulkCategoryId(undefined);
+  }
+
+  function toggleRowSelection(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  async function handleBulkCategorize() {
+    if (!bulkCategoryId || selectedIds.size === 0) return;
+    try {
+      const result = await bulkCategorize.mutateAsync({
+        transactionIds: [...selectedIds],
+        categoryId: bulkCategoryId,
+      });
+      toast.success(
+        `${result.updated.length} atualizados${result.failed.length ? `, ${result.failed.length} com erro` : ""}`,
+      );
+      setSelectionMode(false);
+      setSelectedIds(new Set());
+      setBulkCategoryId(undefined);
+    } catch (err) {
+      toast.error(apiErrorMessage(err));
+    }
+  }
+
   const report = reportQ.data;
   const isLoading = txQ.isLoading;
 
@@ -171,6 +227,35 @@ function Lancamentos() {
         actions={
           <>
             <MonthPicker value={month} onChange={setMonth} className="hidden sm:inline-flex" />
+            <PermissionGate permission={PERMISSIONS.TRANSACTION_MANAGE}>
+              <Button
+                size="sm"
+                variant={selectionMode ? "secondary" : "outline"}
+                className="gap-1.5"
+                onClick={toggleSelectionMode}
+              >
+                <CheckSquare className="h-4 w-4" />{" "}
+                <span className="hidden sm:inline">
+                  {selectionMode ? "Cancelar" : "Selecionar"}
+                </span>
+              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button size="sm" variant="outline" className="gap-1.5">
+                    <Upload className="h-4 w-4" />{" "}
+                    <span className="hidden sm:inline">Importar</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => setImporting(true)}>
+                    <Upload className="mr-2 h-4 w-4" /> Importar lançamentos
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setResuming(true)}>
+                    <RefreshCw className="mr-2 h-4 w-4" /> Continuar parcelamento existente
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </PermissionGate>
             <PermissionGate permission={PERMISSIONS.TRANSACTION_CREATE}>
               <Button size="sm" className="gap-1.5" onClick={() => setCreating(true)}>
                 <Plus className="h-4 w-4" /> <span className="hidden sm:inline">Novo</span>
@@ -179,6 +264,38 @@ function Lancamentos() {
           </>
         }
       />
+
+      {/* Barra de ação em lote (Sprint 4.6, Parte B) */}
+      {selectionMode && selectedIds.size > 0 && (
+        <div className="mx-4 mb-4 flex flex-wrap items-center gap-2 rounded-2xl border border-border/60 bg-card p-3 sm:mx-6 lg:mx-0">
+          <span className="text-sm font-medium">{selectedIds.size} selecionados</span>
+          <div className="min-w-48 flex-1">
+            <CategorySelect
+              entityId={entity?.id}
+              type={rows.find((t) => selectedIds.has(t.id))?.type ?? "EXPENSE"}
+              value={bulkCategoryId}
+              onChange={setBulkCategoryId}
+              placeholder="Aplicar categoria a N selecionados"
+            />
+          </div>
+          <Button
+            size="sm"
+            disabled={!bulkCategoryId || bulkCategorize.isPending}
+            onClick={handleBulkCategorize}
+          >
+            {bulkCategorize.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Aplicar
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => setSelectedIds(new Set())}
+            aria-label="Limpar seleção"
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+      )}
 
       {/* MonthPicker mobile */}
       <div className="mx-4 mb-4 sm:hidden">
@@ -272,6 +389,14 @@ function Lancamentos() {
                 const overdue = t.status === "PLANNED" && t.competenceDate < todayISO();
                 return (
                   <li key={t.id} className="flex items-start gap-3 p-4">
+                    {selectionMode && (
+                      <Checkbox
+                        checked={selectedIds.has(t.id)}
+                        onCheckedChange={() => toggleRowSelection(t.id)}
+                        aria-label={`Selecionar ${t.description}`}
+                        className="mt-2"
+                      />
+                    )}
                     <div
                       className="grid h-10 w-10 shrink-0 place-items-center rounded-full text-[10px] font-bold uppercase text-white"
                       style={{ backgroundColor: cat?.color ?? "#6B7B77" }}
@@ -319,6 +444,7 @@ function Lancamentos() {
             <table className="hidden w-full text-sm md:table">
               <thead className="text-left text-xs uppercase tracking-wider text-muted-foreground">
                 <tr className="border-b border-border/60">
+                  {selectionMode && <th className="w-10 px-3 py-3" />}
                   <th className="px-5 py-3 font-medium">Descrição</th>
                   <th className="px-5 py-3 font-medium">Categoria</th>
                   <th className="px-5 py-3 font-medium">Conta</th>
@@ -338,6 +464,15 @@ function Lancamentos() {
                       key={t.id}
                       className="border-b border-border/50 last:border-b-0 hover:bg-secondary/40"
                     >
+                      {selectionMode && (
+                        <td className="px-3 py-3.5">
+                          <Checkbox
+                            checked={selectedIds.has(t.id)}
+                            onCheckedChange={() => toggleRowSelection(t.id)}
+                            aria-label={`Selecionar ${t.description}`}
+                          />
+                        </td>
+                      )}
                       <td className="px-5 py-3.5">
                         <div className="font-medium">{t.description}</div>
                         <div className="mt-0.5 flex flex-wrap gap-1.5">
@@ -406,6 +541,12 @@ function Lancamentos() {
         transaction={settling}
         onClose={() => setSettling(null)}
       />
+      <TransactionBulkImportDialog
+        entityId={entity?.id}
+        open={importing}
+        onOpenChange={setImporting}
+      />
+      <ResumeInstallmentsDialog entityId={entity?.id} open={resuming} onOpenChange={setResuming} />
     </AppShell>
   );
 }

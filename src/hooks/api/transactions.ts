@@ -5,8 +5,15 @@ import {
   transactionsApi,
   type CreateInstallmentsBody,
   type CreateRecurrenceBody,
+  type ResumeInstallmentsBody,
 } from "@/lib/api/endpoints";
-import type { Transaction, TransactionFilters } from "@/lib/api/types";
+import type {
+  Transaction,
+  TransactionBulkImportRow,
+  TransactionFilters,
+  TxScope,
+  TxType,
+} from "@/lib/api/types";
 import { qk } from "./keys";
 
 /**
@@ -83,6 +90,31 @@ export function useUnsettleTransaction(entityId: string | undefined) {
   });
 }
 
+/** Importação em massa de histórico (Sprint 4.6, Parte A). */
+export function useBulkImportTransactions(entityId: string | undefined) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: {
+      type: TxType;
+      accountId: string;
+      defaultCategoryId?: string;
+      defaultScope: TxScope;
+      rows: TransactionBulkImportRow[];
+    }) => transactionsApi.bulkImport(entityId!, body),
+    onSuccess: () => invalidateTransactionDomains(qc, entityId),
+  });
+}
+
+/** Aplica a mesma categoria a N lançamentos selecionados (Sprint 4.6, Parte B). */
+export function useBulkCategorize(entityId: string | undefined) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: { transactionIds: string[]; categoryId: string }) =>
+      transactionsApi.bulkCategorize(entityId!, body),
+    onSuccess: () => invalidateTransactionDomains(qc, entityId),
+  });
+}
+
 // ------- recorrências -------
 
 export function useRecurrences(entityId: string | undefined) {
@@ -130,6 +162,15 @@ export function useCancelInstallments(entityId: string | undefined) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (groupId: string) => installmentsApi.cancel(entityId!, groupId),
+    onSuccess: () => invalidateTransactionDomains(qc, entityId),
+  });
+}
+
+/** Continua um parcelamento que já estava em andamento antes do Frisby (Sprint 4.6, Parte C). */
+export function useResumeInstallments(entityId: string | undefined) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: ResumeInstallmentsBody) => installmentsApi.resume(entityId!, body),
     onSuccess: () => invalidateTransactionDomains(qc, entityId),
   });
 }

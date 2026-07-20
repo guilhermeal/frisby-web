@@ -239,8 +239,12 @@ export function mapTransaction(t: ApiTransaction): Transaction {
       ? { interval: "MONTHLY", ruleId: t.recurrenceRuleId }
       : undefined,
     installment:
-      t.installmentGroupId && t.installmentNumber && t.installmentTotal
-        ? { number: t.installmentNumber, total: t.installmentTotal, groupId: t.installmentGroupId }
+      t.installmentNumber && t.installmentTotal
+        ? {
+            number: t.installmentNumber,
+            total: t.installmentTotal,
+            ...(t.installmentGroupId ? { groupId: t.installmentGroupId } : {}),
+          }
         : undefined,
     hasAttachments: t.hasAttachments ?? false,
   };

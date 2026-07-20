@@ -112,7 +112,9 @@ export interface TransactionShare {
 export interface TransactionInstallment {
   number: number;
   total: number;
-  groupId: string;
+  /** Ausente quando a parcela é só metadado de exibição (import em massa de
+   * histórico) — não há série real, então não há grupo pra cancelar/consultar. */
+  groupId?: string;
 }
 
 export interface TransactionRecurrence {
@@ -142,6 +144,27 @@ export interface Transaction {
   cardInvoiceMonth?: string;
   /** true = tem ao menos um comprovante/boleto anexado (ícone de clipe na lista). */
   hasAttachments?: boolean;
+}
+
+/** Uma linha do texto colado/enviado na importação em massa (Sprint 4.6, Parte A). */
+export interface TransactionBulkImportRow {
+  date: string; // YYYY-MM-DD
+  description: string;
+  amount: string; // centavos, já convertido no client
+  /** Metadados de exibição apenas — não geram série nem installmentGroupId. */
+  installmentNumber: number | null;
+  installmentTotal: number | null;
+  categoryId: string | null;
+}
+
+export interface TransactionBulkImportSummary {
+  created: string[];
+  failed: Array<{ index: number; error: string }>;
+}
+
+export interface TransactionBulkCategorizeSummary {
+  updated: string[];
+  failed: Array<{ id: string; error: string }>;
 }
 
 /** Comprovante/boleto/nota fiscal anexado a um lançamento OU pagamento de fatura. */
