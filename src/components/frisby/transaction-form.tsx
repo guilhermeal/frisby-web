@@ -329,7 +329,7 @@ export function TransactionForm({
             value={amount}
             onChange={setAmount}
             autoFocus
-            allowNegative={isEdit}
+            allowNegative
             className="h-12 text-xl"
           />
           {fieldErrors.amount && <p className="text-xs text-expense">{fieldErrors.amount}</p>}
