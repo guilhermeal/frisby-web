@@ -74,3 +74,12 @@ export function useCloseInvoice(cardId: string | undefined) {
     onSuccess: invalidate,
   });
 }
+
+/** Get-or-create a fatura do ciclo de hoje — para quando o cartão ainda não tem nenhuma OPEN. */
+export function useCreateCurrentInvoice(cardId: string | undefined) {
+  const invalidate = useInvalidateCard(cardId);
+  return useMutation({
+    mutationFn: () => cardsApi.currentInvoice(cardId!),
+    onSuccess: invalidate,
+  });
+}

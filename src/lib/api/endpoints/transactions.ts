@@ -103,6 +103,9 @@ export const transactionsApi = {
   /**
    * Importação em massa de histórico (Sprint 4.6, Parte A) — cada linha vira
    * uma Transaction SETTLED independente. Resposta parcial: created/failed.
+   * `targetInvoiceId` é obrigatório quando accountId é um cartão de crédito —
+   * toda linha do lote (com ou sem parcela) é vinculada a essa fatura; a
+   * `date` de cada linha é só metadado histórico, nunca determina a fatura.
    */
   bulkImport: (
     entityId: string,
@@ -111,6 +114,7 @@ export const transactionsApi = {
       accountId: string;
       defaultCategoryId?: string;
       defaultScope: TxScope;
+      targetInvoiceId?: string;
       rows: TransactionBulkImportRow[];
     },
   ): Promise<TransactionBulkImportSummary> =>

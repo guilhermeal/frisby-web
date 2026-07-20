@@ -7,21 +7,34 @@
 // previstas nos meses seguintes — nunca recria as parcelas já pagas antes
 // dessa (1..parcela-1), pois não há certeza de que existiram no sistema.
 
-import { useRef, useState } from "react";
-import { CheckCircle2, Loader2, Upload, XCircle } from "lucide-react";
+import { useMemo, useRef, useState } from "react";
+import { AlertTriangle, CheckCircle2, Loader2, Upload, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { ResponsiveDialog } from "@/components/frisby/responsive-dialog";
 import { AccountSelect } from "@/components/frisby/account-select";
 import { CategorySelect } from "@/components/frisby/category-select";
-import { useBulkImportTransactions } from "@/hooks/api";
+import {
+  useBulkImportTransactions,
+  useCardInvoices,
+  useCreateCurrentInvoice,
+  useTransactions,
+} from "@/hooks/api";
 import { apiErrorMessage } from "@/lib/api/error-messages";
 import { formatMoney } from "@/lib/money";
-import type { TransactionBulkImportSummary, TxType } from "@/lib/api/types";
+import { formatDate } from "@/lib/format";
+import type { Account, Transaction, TransactionBulkImportSummary, TxType } from "@/lib/api/types";
 import { cn } from "@/lib/utils";
 
 interface TransactionBulkImportDialogProps {
@@ -164,6 +177,48 @@ function parseBulkText(text: string): PreviewRow[] {
     });
 }
 
+interface DuplicateMatch {
+  matchedFields: string[];
+  similar: Transaction;
+}
+
+/**
+ * Compara cada linha válida contra transações já existentes nos 5 campos
+ * (data, descrição, parcela, total de parcelas, valor). >=3 de 5 campos
+ * batendo exatamente marca a linha como possível duplicata — só um alerta
+ * visual, nunca bloqueia a importação.
+ */
+function detectDuplicates(
+  rows: PreviewRow[],
+  existing: Transaction[],
+): Map<number, DuplicateMatch> {
+  const result = new Map<number, DuplicateMatch>();
+  rows.forEach((row, idx) => {
+    if (!row.valid) return;
+    let best: DuplicateMatch | null = null;
+    for (const tx of existing) {
+      const fields = [
+        tx.competenceDate === row.date,
+        tx.description.trim().toLowerCase() === row.description.trim().toLowerCase(),
+        (tx.installment?.number ?? null) === row.installmentNumber,
+        (tx.installment?.total ?? null) === row.installmentTotal,
+        tx.amount === row.amount,
+      ];
+      const matchedFields = (
+        ["Data", "Descrição", "Parcela", "Total de parcelas", "Valor"] as const
+      ).filter((_, i) => fields[i]);
+      if (
+        matchedFields.length >= 3 &&
+        (!best || matchedFields.length > best.matchedFields.length)
+      ) {
+        best = { matchedFields, similar: tx };
+      }
+    }
+    if (best) result.set(idx, best);
+  });
+  return result;
+}
+
 export function TransactionBulkImportDialog({
   entityId,
   open,
@@ -172,7 +227,9 @@ export function TransactionBulkImportDialog({
   const [text, setText] = useState("");
   const [type, setType] = useState<TxType>("EXPENSE");
   const [accountId, setAccountId] = useState<string | undefined>(undefined);
+  const [selectedAccount, setSelectedAccount] = useState<Account | undefined>(undefined);
   const [defaultCategoryId, setDefaultCategoryId] = useState<string | undefined>(undefined);
+  const [targetInvoiceId, setTargetInvoiceId] = useState<string | undefined>(undefined);
   const [selected, setSelected] = useState<Set<number>>(new Set());
   /** Override de categoria por linha (índice → categoryId) — vence a categoria padrão do lote. */
   const [rowCategoryOverrides, setRowCategoryOverrides] = useState<Map<number, string>>(new Map());
@@ -181,10 +238,27 @@ export function TransactionBulkImportDialog({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const bulkImport = useBulkImportTransactions(entityId);
+  const isCreditCard = selectedAccount?.type === "CREDIT_CARD";
+  const invoicesQ = useCardInvoices(isCreditCard ? accountId : undefined);
+  const openInvoices = (invoicesQ.data ?? []).filter((i) => i.status === "OPEN");
+  const createCurrentInvoice = useCreateCurrentInvoice(isCreditCard ? accountId : undefined);
 
-  const preview = text.trim() ? parseBulkText(text) : [];
+  // Comparação de duplicidade fica restrita à mesma conta escolhida, entre os
+  // últimos lançamentos da entidade — reduz o universo e evita falso-positivo
+  // entre contas diferentes.
+  const existingTxQ = useTransactions({ entityId });
+  const existingForAccount = useMemo(
+    () => (existingTxQ.data ?? []).filter((t) => t.accountId === accountId),
+    [existingTxQ.data, accountId],
+  );
+
+  const preview = useMemo(() => (text.trim() ? parseBulkText(text) : []), [text]);
   const validRows = preview.filter((r) => r.valid);
   const invalidCount = preview.length - validRows.length;
+  const duplicates = useMemo(
+    () => detectDuplicates(preview, existingForAccount),
+    [preview, existingForAccount],
+  );
 
   function setTextAndReselect(next: string) {
     setText(next);
@@ -197,8 +271,17 @@ export function TransactionBulkImportDialog({
     setText("");
     setSelected(new Set());
     setRowCategoryOverrides(new Map());
+    setAccountId(undefined);
+    setSelectedAccount(undefined);
+    setTargetInvoiceId(undefined);
     setSummary(null);
     setError(null);
+  }
+
+  function handleAccountChange(id: string, account: Account | undefined) {
+    setAccountId(id);
+    setSelectedAccount(account);
+    setTargetInvoiceId(undefined);
   }
 
   function setRowCategory(idx: number, categoryId: string) {
@@ -234,6 +317,7 @@ export function TransactionBulkImportDialog({
 
   async function handleConfirm() {
     if (!accountId) return setError("Escolha a conta de origem.");
+    if (isCreditCard && !targetInvoiceId) return setError("Escolha a fatura de destino do cartão.");
     if (selectedIndexes.length === 0) return setError("Selecione ao menos uma linha válida.");
     setError(null);
     try {
@@ -242,6 +326,7 @@ export function TransactionBulkImportDialog({
         accountId,
         defaultCategoryId,
         defaultScope: "ENTITY",
+        ...(targetInvoiceId ? { targetInvoiceId } : {}),
         rows: selectedIndexes.map((idx) => {
           const r = preview[idx]!;
           return {
@@ -258,6 +343,15 @@ export function TransactionBulkImportDialog({
       toast.success(
         `Importação concluída: ${result.created.length} criados, ${result.failed.length} com erro`,
       );
+    } catch (err) {
+      setError(apiErrorMessage(err));
+    }
+  }
+
+  async function handleCreateCurrentInvoice() {
+    try {
+      const inv = await createCurrentInvoice.mutateAsync();
+      setTargetInvoiceId(inv.id);
     } catch (err) {
       setError(apiErrorMessage(err));
     }
@@ -289,7 +383,7 @@ export function TransactionBulkImportDialog({
                 <AccountSelect
                   entityId={entityId}
                   value={accountId}
-                  onChange={(id) => setAccountId(id)}
+                  onChange={handleAccountChange}
                 />
               </div>
               <div className="space-y-1.5">
@@ -303,6 +397,46 @@ export function TransactionBulkImportDialog({
                 />
               </div>
             </div>
+
+            {isCreditCard && (
+              <div className="space-y-1.5">
+                <Label>Fatura de destino</Label>
+                <p className="text-xs text-muted-foreground">
+                  Todos os lançamentos deste lote são vinculados a esta fatura; parcelas restantes
+                  avançam para as faturas seguintes automaticamente.
+                </p>
+                {invoicesQ.isLoading ? (
+                  <p className="text-xs text-muted-foreground">Carregando faturas…</p>
+                ) : openInvoices.length === 0 ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={createCurrentInvoice.isPending}
+                    onClick={handleCreateCurrentInvoice}
+                  >
+                    {createCurrentInvoice.isPending && (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    )}
+                    Criar fatura do mês atual
+                  </Button>
+                ) : (
+                  <Select value={targetInvoiceId} onValueChange={setTargetInvoiceId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Escolha a fatura" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {openInvoices.map((inv) => (
+                        <SelectItem key={inv.id} value={inv.id}>
+                          Fatura {inv.month} — fecha {formatDate(inv.closingDate)} —{" "}
+                          {formatMoney(inv.calculatedAmount)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
+            )}
 
             <div className="space-y-1.5">
               <input
@@ -360,62 +494,94 @@ export function TransactionBulkImportDialog({
                       <XCircle className="h-3.5 w-3.5" /> {invalidCount} com erro
                     </span>
                   )}
+                  {duplicates.size > 0 && (
+                    <span className="flex items-center gap-1 text-warning">
+                      <AlertTriangle className="h-3.5 w-3.5" /> {duplicates.size} possível
+                      {duplicates.size > 1 ? "eis" : ""} duplicata
+                      {duplicates.size > 1 ? "s" : ""}
+                    </span>
+                  )}
                 </div>
                 <div className="max-h-80 overflow-y-auto rounded-lg border border-border/60">
                   <table className="w-full text-xs">
                     <thead className="sticky top-0 bg-secondary/60 text-left uppercase tracking-wider text-muted-foreground">
                       <tr className="border-b border-border/60">
                         <th className="w-8 px-2 py-1.5"></th>
-                        <th className="px-2 py-1.5 font-medium">Data</th>
-                        <th className="px-2 py-1.5 font-medium">Descrição</th>
-                        <th className="px-2 py-1.5 font-medium">Parcela</th>
-                        <th className="min-w-40 px-2 py-1.5 font-medium">Categoria</th>
-                        <th className="px-2 py-1.5 text-right font-medium">Valor</th>
+                        <th className="w-6 px-1 py-1.5"></th>
+                        <th className="p-1 font-medium">Data</th>
+                        <th className="p-1 font-medium">Descrição</th>
+                        <th className="p-1 font-medium">Parcela</th>
+                        <th className="min-w-35 p-1 font-medium">Categoria</th>
+                        <th className="min-w-25 p-1 text-right font-medium">Valor</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {preview.map((row, idx) => (
-                        <tr
-                          key={idx}
-                          className={cn("border-t border-border/40", !row.valid && "bg-expense/5")}
-                          title={row.reason}
-                        >
-                          <td className="px-2 py-1">
-                            <Checkbox
-                              checked={selected.has(idx)}
-                              disabled={!row.valid}
-                              onCheckedChange={() => toggleRow(idx)}
-                              aria-label={`Selecionar linha ${idx + 1}`}
-                            />
-                          </td>
-                          <td className="px-2 py-1">{row.date || "—"}</td>
-                          <td className="px-2 py-1">
-                            {row.description || <span className="text-expense">{row.reason}</span>}
-                          </td>
-                          <td className="px-2 py-1">
-                            {row.installmentNumber && row.installmentTotal
-                              ? `${row.installmentNumber}/${row.installmentTotal}`
-                              : "—"}
-                          </td>
-                          <td className="px-2 py-1">
-                            {row.valid && (
-                              <CategorySelect
-                                entityId={entityId}
-                                type={type}
-                                value={rowCategoryOverrides.get(idx) ?? defaultCategoryId}
-                                onChange={(categoryId) => setRowCategory(idx, categoryId)}
-                                placeholder="Padrão do lote"
-                                className="h-7 text-xs"
-                              />
+                      {preview.map((row, idx) => {
+                        const dup = duplicates.get(idx);
+                        return (
+                          <tr
+                            key={idx}
+                            className={cn(
+                              "border-t border-border/40",
+                              !row.valid && "bg-expense/5",
+                              row.valid && dup && "bg-warning/10",
+                              "hover:bg-accent-foreground/10",
                             )}
-                          </td>
-                          <td className="px-2 py-1 text-right">
-                            {row.amount
-                              ? formatMoney(row.amount, "BRL", "pt-BR", { sign: true })
-                              : "—"}
-                          </td>
-                        </tr>
-                      ))}
+                            title={row.reason}
+                          >
+                            <td className="px-2 py-1">
+                              <Checkbox
+                                checked={selected.has(idx)}
+                                disabled={!row.valid}
+                                onCheckedChange={() => toggleRow(idx)}
+                                aria-label={`Selecionar linha ${idx + 1}`}
+                              />
+                            </td>
+                            <td className="px-1 py-1">
+                              {dup && (
+                                <span
+                                  title={`Possível duplicata — campos coincidentes: ${dup.matchedFields.join(", ")}. Lançamento parecido: "${dup.similar.description}" em ${formatDate(dup.similar.competenceDate)}, ${formatMoney(dup.similar.amount, "BRL", "pt-BR", { sign: true })}.`}
+                                >
+                                  <AlertTriangle
+                                    className="h-3.5 w-3.5 text-warning"
+                                    aria-label="Possível duplicata"
+                                  />
+                                </span>
+                              )}
+                            </td>
+                            <td className="p-1">{row.date || "—"}</td>
+                            <td className="p-1">
+                              {row.description || (
+                                <span className="text-expense text-ellipsis" title={row.reason}>
+                                  {row.reason}
+                                </span>
+                              )}
+                            </td>
+                            <td className="text-center">
+                              {row.installmentNumber && row.installmentTotal
+                                ? `${row.installmentNumber}/${row.installmentTotal}`
+                                : "—"}
+                            </td>
+                            <td className="p-1">
+                              {row.valid && (
+                                <CategorySelect
+                                  entityId={entityId}
+                                  type={type}
+                                  value={rowCategoryOverrides.get(idx) ?? defaultCategoryId}
+                                  onChange={(categoryId) => setRowCategory(idx, categoryId)}
+                                  placeholder="Padrão do lote"
+                                  className="h-7 text-xs"
+                                />
+                              )}
+                            </td>
+                            <td className="p-1 text-right">
+                              {row.amount
+                                ? formatMoney(row.amount, "BRL", "pt-BR", { sign: true })
+                                : "—"}
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>

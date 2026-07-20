@@ -56,4 +56,9 @@ export const cardsApi = {
     );
     return mapInvoice(closed);
   },
+  /** Get-or-create a fatura do ciclo de hoje — usado quando não existe nenhuma OPEN ainda. */
+  currentInvoice: async (cardId: string): Promise<Invoice> => {
+    const invoice = await api.post<ApiInvoice>(`/accounts/${cardId}/invoices/current`, {});
+    return mapInvoice(invoice);
+  },
 };
