@@ -4,6 +4,7 @@
 
 import { api } from "../client";
 import type {
+  CategoryResolutionResult,
   RecurrenceRule,
   Transaction,
   TransactionBulkCategorizeSummary,
@@ -119,6 +120,23 @@ export const transactionsApi = {
     },
   ): Promise<TransactionBulkImportSummary> =>
     api.post<TransactionBulkImportSummary>(`/entities/${entityId}/transactions/bulk`, body),
+  /**
+   * Resolve a coluna opcional de categoria do CSV (UUID, code ou nome) por
+   * linha, sem criar nada — usado para pré-selecionar a categoria na tabela
+   * de conferência (Sprint 4.7).
+   */
+  bulkPreviewCategories: (
+    entityId: string,
+    body: {
+      type: TxType;
+      defaultCategoryId?: string;
+      rows: Array<{ categoryHint: string | null }>;
+    },
+  ): Promise<{ rows: CategoryResolutionResult[] }> =>
+    api.post<{ rows: CategoryResolutionResult[] }>(
+      `/entities/${entityId}/transactions/bulk-preview`,
+      body,
+    ),
   /** Aplica a mesma categoria a N lançamentos de uma vez. Resposta parcial. */
   bulkCategorize: (
     entityId: string,

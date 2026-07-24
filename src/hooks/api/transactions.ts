@@ -105,6 +105,17 @@ export function useBulkImportTransactions(entityId: string | undefined) {
   });
 }
 
+/** Resolve a categoria do CSV por linha (UUID, code ou nome) antes de confirmar (Sprint 4.7). */
+export function useBulkPreviewCategories(entityId: string | undefined) {
+  return useMutation({
+    mutationFn: (body: {
+      type: TxType;
+      defaultCategoryId?: string;
+      rows: Array<{ categoryHint: string | null }>;
+    }) => transactionsApi.bulkPreviewCategories(entityId!, body),
+  });
+}
+
 /** Aplica a mesma categoria a N lançamentos selecionados (Sprint 4.6, Parte B). */
 export function useBulkCategorize(entityId: string | undefined) {
   const qc = useQueryClient();

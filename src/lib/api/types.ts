@@ -162,6 +162,15 @@ export interface TransactionBulkImportSummary {
   failed: Array<{ index: number; error: string }>;
 }
 
+/** Como o backend resolveu a coluna opcional de categoria do CSV (Sprint 4.7). */
+export type CategoryResolutionMethod = "uuid" | "code" | "name" | "default" | "ambiguous" | "notfound";
+
+export interface CategoryResolutionResult {
+  categoryId: string | null;
+  categoryName: string | null;
+  resolvedBy: CategoryResolutionMethod;
+}
+
 export interface TransactionBulkCategorizeSummary {
   updated: string[];
   failed: Array<{ id: string; error: string }>;

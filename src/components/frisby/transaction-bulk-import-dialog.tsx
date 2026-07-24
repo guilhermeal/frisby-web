@@ -1,5 +1,6 @@
 // Importação em massa de lançamentos históricos — colar texto (ou upload de
-// arquivo) sem header, uma linha por lançamento: data;descricao;parcela;total;valor.
+// arquivo) sem header, uma linha por lançamento:
+// data;descricao;parcela;total;valor;categoria (categoria é opcional, 6ª coluna).
 // Prévia local antes de confirmar; toda validação de negócio é do backend
 // (resposta parcial: created/failed). Quando parcela/total vêm preenchidos e
 // a parcela informada é menor que o total, o backend cria a parcela atual
@@ -7,8 +8,8 @@
 // previstas nos meses seguintes — nunca recria as parcelas já pagas antes
 // dessa (1..parcela-1), pois não há certeza de que existiram no sistema.
 
-import { useMemo, useRef, useState } from "react";
-import { AlertTriangle, CheckCircle2, Loader2, Upload, XCircle } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { AlertTriangle, CheckCircle2, FileCheck2, Loader2, Upload, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -27,6 +28,7 @@ import { AccountSelect } from "@/components/frisby/account-select";
 import { CategorySelect } from "@/components/frisby/category-select";
 import {
   useBulkImportTransactions,
+  useBulkPreviewCategories,
   useCardInvoices,
   useCreateCurrentInvoice,
   useTransactions,
@@ -34,7 +36,13 @@ import {
 import { apiErrorMessage } from "@/lib/api/error-messages";
 import { formatMoney } from "@/lib/money";
 import { formatDate } from "@/lib/format";
-import type { Account, Transaction, TransactionBulkImportSummary, TxType } from "@/lib/api/types";
+import type {
+  Account,
+  CategoryResolutionMethod,
+  Transaction,
+  TransactionBulkImportSummary,
+  TxType,
+} from "@/lib/api/types";
 import { cn } from "@/lib/utils";
 
 interface TransactionBulkImportDialogProps {
@@ -49,6 +57,8 @@ interface PreviewRow {
   installmentNumber: number | null;
   installmentTotal: number | null;
   amount: string; // centavos, "" se inválido
+  /** Texto bruto da 6ª coluna (opcional) — UUID, código ou nome de categoria. */
+  categoryHint: string | null;
   valid: boolean;
   reason?: string;
 }
@@ -84,24 +94,29 @@ function parseBulkText(text: string): PreviewRow[] {
     .filter(Boolean)
     .map((line) => {
       const cells = line.split(";").map((c) => c.trim());
-      if (cells.length !== 5) {
+      // Formato antigo (Sprint 4.6): 5 colunas, sem categoria. Formato novo
+      // (Sprint 4.7): 6ª coluna opcional com UUID, código ou nome da categoria.
+      if (cells.length !== 5 && cells.length !== 6) {
         return {
           date: cells[0] ?? "",
           description: cells[1] ?? "",
           installmentNumber: null,
           installmentTotal: null,
           amount: "",
+          categoryHint: null,
           valid: false,
-          reason: "linha precisa ter 5 campos: data;descricao;parcela;total;valor",
+          reason: "linha precisa ter 5 ou 6 campos: data;descricao;parcela;total;valor;categoria",
         };
       }
-      const [dateRaw, description, parcelaRaw, totalRaw, valorRaw] = cells as [
+      const [dateRaw, description, parcelaRaw, totalRaw, valorRaw, categoriaRaw] = cells as [
         string,
         string,
         string,
         string,
         string,
+        string?,
       ];
+      const categoryHint = categoriaRaw?.trim() ? categoriaRaw.trim() : null;
 
       if (!isValidISODate(dateRaw)) {
         return {
@@ -110,6 +125,7 @@ function parseBulkText(text: string): PreviewRow[] {
           installmentNumber: null,
           installmentTotal: null,
           amount: "",
+          categoryHint,
           valid: false,
           reason: "data inválida (use AAAA-MM-DD)",
         };
@@ -121,6 +137,7 @@ function parseBulkText(text: string): PreviewRow[] {
           installmentNumber: null,
           installmentTotal: null,
           amount: "",
+          categoryHint,
           valid: false,
           reason: "descrição ausente",
         };
@@ -133,6 +150,7 @@ function parseBulkText(text: string): PreviewRow[] {
           installmentNumber: null,
           installmentTotal: null,
           amount: "",
+          categoryHint,
           valid: false,
           reason: "valor inválido",
         };
@@ -146,6 +164,7 @@ function parseBulkText(text: string): PreviewRow[] {
           installmentNumber: null,
           installmentTotal: null,
           amount: cents,
+          categoryHint,
           valid: false,
           reason: "parcela e total devem vir juntos ou ambos vazios",
         };
@@ -162,6 +181,7 @@ function parseBulkText(text: string): PreviewRow[] {
           installmentNumber: null,
           installmentTotal: null,
           amount: cents,
+          categoryHint,
           valid: false,
           reason: "parcela inválida",
         };
@@ -172,6 +192,7 @@ function parseBulkText(text: string): PreviewRow[] {
         installmentNumber,
         installmentTotal,
         amount: cents,
+        categoryHint,
         valid: true,
       };
     });
@@ -233,11 +254,16 @@ export function TransactionBulkImportDialog({
   const [selected, setSelected] = useState<Set<number>>(new Set());
   /** Override de categoria por linha (índice → categoryId) — vence a categoria padrão do lote. */
   const [rowCategoryOverrides, setRowCategoryOverrides] = useState<Map<number, string>>(new Map());
+  /** Resolução da coluna de categoria do CSV por linha (índice → resultado do backend). */
+  const [categoryResolutions, setCategoryResolutions] = useState<
+    Map<number, { categoryId: string | null; categoryName: string | null; resolvedBy: CategoryResolutionMethod }>
+  >(new Map());
   const [summary, setSummary] = useState<TransactionBulkImportSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const bulkImport = useBulkImportTransactions(entityId);
+  const bulkPreviewCategories = useBulkPreviewCategories(entityId);
   const isCreditCard = selectedAccount?.type === "CREDIT_CARD";
   const invoicesQ = useCardInvoices(isCreditCard ? accountId : undefined);
   const openInvoices = (invoicesQ.data ?? []).filter((i) => i.status === "OPEN");
@@ -260,17 +286,57 @@ export function TransactionBulkImportDialog({
     [preview, existingForAccount],
   );
 
+  // Resolve a coluna de categoria do CSV (UUID, código ou nome) por linha
+  // assim que houver linhas válidas com a dica preenchida — pré-seleciona a
+  // categoria na tabela de conferência sem bloquear a digitação/upload.
+  useEffect(() => {
+    const rowsWithHint = validRows.filter((r) => r.categoryHint);
+    if (rowsWithHint.length === 0) {
+      setCategoryResolutions(new Map());
+      return;
+    }
+    let cancelled = false;
+    bulkPreviewCategories
+      .mutateAsync({
+        type,
+        ...(defaultCategoryId ? { defaultCategoryId } : {}),
+        rows: validRows.map((r) => ({ categoryHint: r.categoryHint })),
+      })
+      .then((result) => {
+        if (cancelled) return;
+        const next = new Map<
+          number,
+          { categoryId: string | null; categoryName: string | null; resolvedBy: CategoryResolutionMethod }
+        >();
+        validRows.forEach((row, i) => {
+          const originalIdx = preview.indexOf(row);
+          const resolved = result.rows[i];
+          if (resolved) next.set(originalIdx, resolved);
+        });
+        setCategoryResolutions(next);
+      })
+      .catch(() => {
+        if (!cancelled) setCategoryResolutions(new Map());
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [text, type, defaultCategoryId, entityId]);
+
   function setTextAndReselect(next: string) {
     setText(next);
     const rows = next.trim() ? parseBulkText(next) : [];
     setSelected(new Set(rows.map((r, i) => (r.valid ? i : -1)).filter((i) => i >= 0)));
     setRowCategoryOverrides(new Map());
+    setCategoryResolutions(new Map());
   }
 
   function reset() {
     setText("");
     setSelected(new Set());
     setRowCategoryOverrides(new Map());
+    setCategoryResolutions(new Map());
     setAccountId(undefined);
     setSelectedAccount(undefined);
     setTargetInvoiceId(undefined);
@@ -335,7 +401,8 @@ export function TransactionBulkImportDialog({
             amount: r.amount,
             installmentNumber: r.installmentNumber,
             installmentTotal: r.installmentTotal,
-            categoryId: rowCategoryOverrides.get(idx) ?? null,
+            categoryId:
+              rowCategoryOverrides.get(idx) ?? categoryResolutions.get(idx)?.categoryId ?? null,
           };
         }),
       });
@@ -464,7 +531,7 @@ export function TransactionBulkImportDialog({
                 value={text}
                 onChange={(e) => setTextAndReselect(e.target.value)}
                 placeholder={
-                  "2026-06-28;Ponto 4 Maceio;;;9900\n2025-12-23;Mercado Livre;7;10;57,91"
+                  "2026-06-28;Ponto 4 Maceio;;;9900;2.5.3\n2025-12-23;Mercado Livre;7;10;57,91;"
                 }
                 rows={8}
                 className="font-mono text-xs"
@@ -480,6 +547,12 @@ export function TransactionBulkImportDialog({
                 Linha com parcela informada (ex.: <span className="font-mono">4;10</span>) cria a
                 parcela atual nessa data e gera as parcelas restantes (5 a 10) automaticamente,
                 previstas nos meses seguintes — as já pagas antes não são recriadas.
+              </p>
+              <p>
+                A 6ª coluna (categoria) é <strong>opcional</strong>: aceita UUID, código (ex.:{" "}
+                <span className="font-mono">2.5.3</span>) ou nome exato de uma categoria já
+                cadastrada. Deixe vazia para usar a categoria padrão do lote. Arquivos com apenas
+                5 colunas (formato antigo) continuam funcionando normalmente.
               </p>
             </div>
 
@@ -563,14 +636,58 @@ export function TransactionBulkImportDialog({
                             </td>
                             <td className="p-1">
                               {row.valid && (
-                                <CategorySelect
-                                  entityId={entityId}
-                                  type={type}
-                                  value={rowCategoryOverrides.get(idx) ?? defaultCategoryId}
-                                  onChange={(categoryId) => setRowCategory(idx, categoryId)}
-                                  placeholder="Padrão do lote"
-                                  className="h-7 text-xs"
-                                />
+                                <div className="flex items-center gap-1">
+                                  <CategorySelect
+                                    entityId={entityId}
+                                    type={type}
+                                    value={
+                                      rowCategoryOverrides.get(idx) ??
+                                      categoryResolutions.get(idx)?.categoryId ??
+                                      defaultCategoryId
+                                    }
+                                    onChange={(categoryId) => setRowCategory(idx, categoryId)}
+                                    placeholder="Padrão do lote"
+                                    className="h-7 text-xs"
+                                  />
+                                  {(() => {
+                                    const resolution = categoryResolutions.get(idx);
+                                    if (!resolution || rowCategoryOverrides.has(idx)) return null;
+                                    if (
+                                      resolution.resolvedBy === "uuid" ||
+                                      resolution.resolvedBy === "code" ||
+                                      resolution.resolvedBy === "name"
+                                    ) {
+                                      return (
+                                        <span title={`Categoria resolvida pelo arquivo (${resolution.resolvedBy}): ${resolution.categoryName}`}>
+                                          <FileCheck2
+                                            className="h-3.5 w-3.5 shrink-0 text-income"
+                                            aria-label="Categoria resolvida pelo arquivo"
+                                          />
+                                        </span>
+                                      );
+                                    }
+                                    if (
+                                      resolution.resolvedBy === "ambiguous" ||
+                                      resolution.resolvedBy === "notfound"
+                                    ) {
+                                      return (
+                                        <span
+                                          title={
+                                            resolution.resolvedBy === "ambiguous"
+                                              ? "Categoria do arquivo é ambígua (mais de uma com o mesmo nome) — usando padrão"
+                                              : "Categoria do arquivo não encontrada — usando padrão"
+                                          }
+                                        >
+                                          <AlertTriangle
+                                            className="h-3.5 w-3.5 shrink-0 text-warning"
+                                            aria-label="Categoria do arquivo não resolvida"
+                                          />
+                                        </span>
+                                      );
+                                    }
+                                    return null;
+                                  })()}
+                                </div>
                               )}
                             </td>
                             <td className="p-1 text-right">
