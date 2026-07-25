@@ -1,5 +1,6 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { cardsApi } from "@/lib/api/endpoints";
+import type { Invoice } from "@/lib/api/types";
 import { qk } from "./keys";
 
 export function useCardInvoices(cardId: string | undefined) {
@@ -8,6 +9,28 @@ export function useCardInvoices(cardId: string | undefined) {
     queryFn: () => cardsApi.invoices(cardId!),
     enabled: !!cardId,
   });
+}
+
+/** Busca as faturas de vários cartões de uma vez (Sprint 4.8, Parte A — linha
+ * de fatura agrupada em /lancamentos). Uma query por cartão, cacheadas na
+ * mesma key de useCardInvoices — sem N+1 real, o número de cartões da
+ * entidade é pequeno e cada query já é uma agregação por cartão. */
+export function useCardInvoicesForCards(cardIds: string[]): {
+  data: Map<string, Invoice[]>;
+  isLoading: boolean;
+} {
+  const results = useQueries({
+    queries: cardIds.map((cardId) => ({
+      queryKey: qk.cardInvoices(cardId),
+      queryFn: () => cardsApi.invoices(cardId),
+    })),
+  });
+  const data = new Map<string, Invoice[]>();
+  cardIds.forEach((cardId, i) => {
+    const r = results[i]?.data;
+    if (r) data.set(cardId, r);
+  });
+  return { data, isLoading: results.some((r) => r.isLoading) };
 }
 
 export function useInvoiceDetail(invoiceId: string | undefined) {

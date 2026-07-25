@@ -1,6 +1,7 @@
 // Importação em massa de lançamentos históricos — colar texto (ou upload de
 // arquivo) sem header, uma linha por lançamento:
-// data;descricao;parcela;total;valor;categoria (categoria é opcional, 6ª coluna).
+// data;descricao;parcela;total;valor;categoria;observacao (categoria e
+// observação são opcionais, 6ª e 7ª colunas).
 // Prévia local antes de confirmar; toda validação de negócio é do backend
 // (resposta parcial: created/failed). Quando parcela/total vêm preenchidos e
 // a parcela informada é menor que o total, o backend cria a parcela atual
@@ -59,6 +60,8 @@ interface PreviewRow {
   amount: string; // centavos, "" se inválido
   /** Texto bruto da 6ª coluna (opcional) — UUID, código ou nome de categoria. */
   categoryHint: string | null;
+  /** 7ª coluna opcional (Sprint 4.8) — observação livre. */
+  notes: string | null;
   valid: boolean;
   reason?: string;
 }
@@ -94,9 +97,10 @@ function parseBulkText(text: string): PreviewRow[] {
     .filter(Boolean)
     .map((line) => {
       const cells = line.split(";").map((c) => c.trim());
-      // Formato antigo (Sprint 4.6): 5 colunas, sem categoria. Formato novo
-      // (Sprint 4.7): 6ª coluna opcional com UUID, código ou nome da categoria.
-      if (cells.length !== 5 && cells.length !== 6) {
+      // Formato antigo (Sprint 4.6): 5 colunas, sem categoria. Sprint 4.7:
+      // 6ª coluna opcional com UUID, código ou nome da categoria. Sprint 4.8:
+      // 7ª coluna opcional com observação livre.
+      if (cells.length < 5 || cells.length > 7) {
         return {
           date: cells[0] ?? "",
           description: cells[1] ?? "",
@@ -104,19 +108,16 @@ function parseBulkText(text: string): PreviewRow[] {
           installmentTotal: null,
           amount: "",
           categoryHint: null,
+          notes: null,
           valid: false,
-          reason: "linha precisa ter 5 ou 6 campos: data;descricao;parcela;total;valor;categoria",
+          reason:
+            "linha precisa ter 5 a 7 campos: data;descricao;parcela;total;valor;categoria;observacao",
         };
       }
-      const [dateRaw, description, parcelaRaw, totalRaw, valorRaw, categoriaRaw] = cells as [
-        string,
-        string,
-        string,
-        string,
-        string,
-        string?,
-      ];
+      const [dateRaw, description, parcelaRaw, totalRaw, valorRaw, categoriaRaw, observacaoRaw] =
+        cells as [string, string, string, string, string, string?, string?];
       const categoryHint = categoriaRaw?.trim() ? categoriaRaw.trim() : null;
+      const notes = observacaoRaw?.trim() ? observacaoRaw.trim() : null;
 
       if (!isValidISODate(dateRaw)) {
         return {
@@ -126,6 +127,7 @@ function parseBulkText(text: string): PreviewRow[] {
           installmentTotal: null,
           amount: "",
           categoryHint,
+          notes,
           valid: false,
           reason: "data inválida (use AAAA-MM-DD)",
         };
@@ -138,6 +140,7 @@ function parseBulkText(text: string): PreviewRow[] {
           installmentTotal: null,
           amount: "",
           categoryHint,
+          notes,
           valid: false,
           reason: "descrição ausente",
         };
@@ -151,6 +154,7 @@ function parseBulkText(text: string): PreviewRow[] {
           installmentTotal: null,
           amount: "",
           categoryHint,
+          notes,
           valid: false,
           reason: "valor inválido",
         };
@@ -165,6 +169,7 @@ function parseBulkText(text: string): PreviewRow[] {
           installmentTotal: null,
           amount: cents,
           categoryHint,
+          notes,
           valid: false,
           reason: "parcela e total devem vir juntos ou ambos vazios",
         };
@@ -182,6 +187,7 @@ function parseBulkText(text: string): PreviewRow[] {
           installmentTotal: null,
           amount: cents,
           categoryHint,
+          notes,
           valid: false,
           reason: "parcela inválida",
         };
@@ -193,6 +199,7 @@ function parseBulkText(text: string): PreviewRow[] {
         installmentTotal,
         amount: cents,
         categoryHint,
+        notes,
         valid: true,
       };
     });
@@ -254,9 +261,18 @@ export function TransactionBulkImportDialog({
   const [selected, setSelected] = useState<Set<number>>(new Set());
   /** Override de categoria por linha (índice → categoryId) — vence a categoria padrão do lote. */
   const [rowCategoryOverrides, setRowCategoryOverrides] = useState<Map<number, string>>(new Map());
+  /** Override de observação por linha (índice → texto) — vence o valor parseado do arquivo. */
+  const [rowNotesOverrides, setRowNotesOverrides] = useState<Map<number, string>>(new Map());
   /** Resolução da coluna de categoria do CSV por linha (índice → resultado do backend). */
   const [categoryResolutions, setCategoryResolutions] = useState<
-    Map<number, { categoryId: string | null; categoryName: string | null; resolvedBy: CategoryResolutionMethod }>
+    Map<
+      number,
+      {
+        categoryId: string | null;
+        categoryName: string | null;
+        resolvedBy: CategoryResolutionMethod;
+      }
+    >
   >(new Map());
   const [summary, setSummary] = useState<TransactionBulkImportSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -306,7 +322,11 @@ export function TransactionBulkImportDialog({
         if (cancelled) return;
         const next = new Map<
           number,
-          { categoryId: string | null; categoryName: string | null; resolvedBy: CategoryResolutionMethod }
+          {
+            categoryId: string | null;
+            categoryName: string | null;
+            resolvedBy: CategoryResolutionMethod;
+          }
         >();
         validRows.forEach((row, i) => {
           const originalIdx = preview.indexOf(row);
@@ -329,6 +349,7 @@ export function TransactionBulkImportDialog({
     const rows = next.trim() ? parseBulkText(next) : [];
     setSelected(new Set(rows.map((r, i) => (r.valid ? i : -1)).filter((i) => i >= 0)));
     setRowCategoryOverrides(new Map());
+    setRowNotesOverrides(new Map());
     setCategoryResolutions(new Map());
   }
 
@@ -336,6 +357,7 @@ export function TransactionBulkImportDialog({
     setText("");
     setSelected(new Set());
     setRowCategoryOverrides(new Map());
+    setRowNotesOverrides(new Map());
     setCategoryResolutions(new Map());
     setAccountId(undefined);
     setSelectedAccount(undefined);
@@ -354,6 +376,14 @@ export function TransactionBulkImportDialog({
     setRowCategoryOverrides((prev) => {
       const next = new Map(prev);
       next.set(idx, categoryId);
+      return next;
+    });
+  }
+
+  function setRowNotes(idx: number, notes: string) {
+    setRowNotesOverrides((prev) => {
+      const next = new Map(prev);
+      next.set(idx, notes);
       return next;
     });
   }
@@ -381,6 +411,13 @@ export function TransactionBulkImportDialog({
     .map((r, idx) => (selected.has(idx) && r.valid ? idx : -1))
     .filter((idx) => idx >= 0);
 
+  // Sprint 4.8, Parte D — soma ao vivo das linhas SELECIONADAS (checkbox),
+  // negativos (estornos) entram normalmente e subtraem.
+  const selectedTotalCents = selectedIndexes.reduce(
+    (sum, idx) => sum + BigInt(preview[idx]!.amount || "0"),
+    0n,
+  );
+
   async function handleConfirm() {
     if (!accountId) return setError("Escolha a conta de origem.");
     if (isCreditCard && !targetInvoiceId) return setError("Escolha a fatura de destino do cartão.");
@@ -403,6 +440,7 @@ export function TransactionBulkImportDialog({
             installmentTotal: r.installmentTotal,
             categoryId:
               rowCategoryOverrides.get(idx) ?? categoryResolutions.get(idx)?.categoryId ?? null,
+            notes: rowNotesOverrides.get(idx) ?? r.notes,
           };
         }),
       });
@@ -551,8 +589,8 @@ export function TransactionBulkImportDialog({
               <p>
                 A 6ª coluna (categoria) é <strong>opcional</strong>: aceita UUID, código (ex.:{" "}
                 <span className="font-mono">2.5.3</span>) ou nome exato de uma categoria já
-                cadastrada. Deixe vazia para usar a categoria padrão do lote. Arquivos com apenas
-                5 colunas (formato antigo) continuam funcionando normalmente.
+                cadastrada. Deixe vazia para usar a categoria padrão do lote. Arquivos com apenas 5
+                colunas (formato antigo) continuam funcionando normalmente.
               </p>
             </div>
 
@@ -585,6 +623,7 @@ export function TransactionBulkImportDialog({
                         <th className="p-1 font-medium">Descrição</th>
                         <th className="p-1 font-medium">Parcela</th>
                         <th className="min-w-35 p-1 font-medium">Categoria</th>
+                        <th className="min-w-35 p-1 font-medium">Observação</th>
                         <th className="min-w-25 p-1 text-right font-medium">Valor</th>
                       </tr>
                     </thead>
@@ -658,7 +697,9 @@ export function TransactionBulkImportDialog({
                                       resolution.resolvedBy === "name"
                                     ) {
                                       return (
-                                        <span title={`Categoria resolvida pelo arquivo (${resolution.resolvedBy}): ${resolution.categoryName}`}>
+                                        <span
+                                          title={`Categoria resolvida pelo arquivo (${resolution.resolvedBy}): ${resolution.categoryName}`}
+                                        >
                                           <FileCheck2
                                             className="h-3.5 w-3.5 shrink-0 text-income"
                                             aria-label="Categoria resolvida pelo arquivo"
@@ -690,6 +731,18 @@ export function TransactionBulkImportDialog({
                                 </div>
                               )}
                             </td>
+                            <td className="p-1">
+                              {row.valid && (
+                                <input
+                                  type="text"
+                                  value={rowNotesOverrides.get(idx) ?? row.notes ?? ""}
+                                  onChange={(e) => setRowNotes(idx, e.target.value)}
+                                  placeholder="Opcional"
+                                  maxLength={2000}
+                                  className="h-7 w-full rounded-md border border-input bg-transparent px-2 text-xs outline-none focus:border-ring"
+                                />
+                              )}
+                            </td>
                             <td className="p-1 text-right">
                               {row.amount
                                 ? formatMoney(row.amount, "BRL", "pt-BR", { sign: true })
@@ -710,6 +763,27 @@ export function TransactionBulkImportDialog({
                 className="rounded-lg border border-expense/40 bg-expense/5 px-3 py-2 text-xs text-expense"
               >
                 {error}
+              </div>
+            )}
+
+            {/* Sprint 4.8, Parte D — totalizador fixo das linhas selecionadas,
+                pra conferir contra o total da fatura antes de confirmar. */}
+            {preview.length > 0 && (
+              <div className="flex items-center justify-between rounded-lg border border-border/60 bg-secondary/40 px-3 py-2 text-sm">
+                <span className="text-muted-foreground">
+                  {selectedIndexes.length}{" "}
+                  {selectedIndexes.length === 1 ? "linha selecionada" : "linhas selecionadas"}
+                </span>
+                <span className="font-display font-semibold">
+                  {formatMoney(
+                    selectedTotalCents.toString(),
+                    selectedAccount?.currency ?? "BRL",
+                    "pt-BR",
+                    {
+                      sign: true,
+                    },
+                  )}
+                </span>
               </div>
             )}
 

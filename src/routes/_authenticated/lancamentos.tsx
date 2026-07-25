@@ -13,6 +13,7 @@ import {
   Plus,
   RefreshCw,
   Search,
+  StickyNote,
   Upload,
   X,
 } from "lucide-react";
@@ -29,6 +30,7 @@ import { PermissionGate } from "@/components/frisby/permission-gate";
 import { CategorySelect } from "@/components/frisby/category-select";
 import { TransactionBulkImportDialog } from "@/components/frisby/transaction-bulk-import-dialog";
 import { ResumeInstallmentsDialog } from "@/components/frisby/resume-installments-dialog";
+import { InvoiceDetailDialog } from "@/components/frisby/invoice-detail-dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -52,11 +54,21 @@ import {
   useDeleteTransaction,
   useUnsettleTransaction,
   useBulkCategorize,
+  useCardInvoicesForCards,
 } from "@/hooks/api";
 import { apiErrorMessage } from "@/lib/api/error-messages";
 import { formatDate, currentMonth, todayISO } from "@/lib/format";
+import { formatMoney } from "@/lib/money";
 import { cn } from "@/lib/utils";
-import type { Account, Category, Member, Transaction, TxStatus, TxType } from "@/lib/api/types";
+import type {
+  Account,
+  Category,
+  Invoice,
+  Member,
+  Transaction,
+  TxStatus,
+  TxType,
+} from "@/lib/api/types";
 
 const searchSchema = z.object({
   month: z
@@ -145,11 +157,48 @@ function Lancamentos() {
     for (const mem of membersQ.data ?? []) m.set(mem.id, mem);
     return m;
   }, [membersQ.data]);
+  const memberByUserId = useMemo(() => {
+    const m = new Map<string, Member>();
+    for (const mem of membersQ.data ?? []) m.set(mem.userId, mem);
+    return m;
+  }, [membersQ.data]);
+
+  // Sprint 4.8, Parte A — compras de CREDIT_CARD não aparecem individualmente
+  // na lista; viram 1 linha sintética por fatura (cartão × mês do período).
+  // Os totais do cabeçalho (useMonthlyReport) já excluem essas compras da
+  // conta corrente (só somam o pagamento da fatura), então agrupar aqui não
+  // introduz dupla contagem — ver critério documentado no backend/report.
+  const cardIds = useMemo(
+    () => (accountsQ.data ?? []).filter((a) => a.type === "CREDIT_CARD").map((a) => a.id),
+    [accountsQ.data],
+  );
+  const invoicesByCard = useCardInvoicesForCards(cardIds);
 
   const rows = useMemo(
-    () => [...(txQ.data ?? [])].sort((a, b) => b.competenceDate.localeCompare(a.competenceDate)),
-    [txQ.data],
+    () =>
+      [...(txQ.data ?? [])]
+        .filter((t) => !(t.accountId && cardIds.includes(t.accountId)))
+        .sort((a, b) => b.competenceDate.localeCompare(a.competenceDate)),
+    [txQ.data, cardIds],
   );
+
+  const invoiceRows = useMemo(() => {
+    const result: Array<{ invoice: Invoice; cardId: string; count: number }> = [];
+    for (const cardId of cardIds) {
+      const invoices = invoicesByCard.data.get(cardId) ?? [];
+      for (const inv of invoices) {
+        if (inv.month !== month) continue;
+        const count = (txQ.data ?? []).filter(
+          (t) => t.accountId === cardId && t.cardInvoiceId === inv.id,
+        ).length;
+        if (count === 0) continue;
+        result.push({ invoice: inv, cardId, count });
+      }
+    }
+    return result;
+  }, [cardIds, invoicesByCard.data, txQ.data, month]);
+
+  const [invoiceDetailId, setInvoiceDetailId] = useState<string | null>(null);
 
   function setFilter(kind: FilterKind) {
     const found = FILTERS.find(([id]) => id === kind)!;
@@ -364,7 +413,7 @@ function Lancamentos() {
           <div className="p-6 text-center text-sm text-expense">
             Falha ao carregar lançamentos: {apiErrorMessage(txQ.error)}
           </div>
-        ) : rows.length === 0 ? (
+        ) : rows.length === 0 && invoiceRows.length === 0 ? (
           <div className="p-6">
             <EmptyState
               title="Nada por aqui ainda"
@@ -383,6 +432,15 @@ function Lancamentos() {
           <>
             {/* Cards (mobile) */}
             <ul className="divide-y divide-border/60 md:hidden">
+              {invoiceRows.map(({ invoice, cardId }) => (
+                <InvoiceRowMobile
+                  key={invoice.id}
+                  invoice={invoice}
+                  card={accountMap.get(cardId)}
+                  ownerName={memberByUserId.get(accountMap.get(cardId)?.ownerId ?? "")?.displayName}
+                  onClick={() => setInvoiceDetailId(invoice.id)}
+                />
+              ))}
               {rows.map((t) => {
                 const cat = categoryMap.get(t.categoryId);
                 const acc = t.accountId ? accountMap.get(t.accountId) : undefined;
@@ -455,6 +513,18 @@ function Lancamentos() {
                 </tr>
               </thead>
               <tbody>
+                {invoiceRows.map(({ invoice, cardId }) => (
+                  <InvoiceRowDesktop
+                    key={invoice.id}
+                    invoice={invoice}
+                    card={accountMap.get(cardId)}
+                    ownerName={
+                      memberByUserId.get(accountMap.get(cardId)?.ownerId ?? "")?.displayName
+                    }
+                    selectionMode={selectionMode}
+                    onClick={() => setInvoiceDetailId(invoice.id)}
+                  />
+                ))}
                 {rows.map((t) => {
                   const cat = categoryMap.get(t.categoryId);
                   const acc = t.accountId ? accountMap.get(t.accountId) : undefined;
@@ -547,11 +617,106 @@ function Lancamentos() {
         onOpenChange={setImporting}
       />
       <ResumeInstallmentsDialog entityId={entity?.id} open={resuming} onOpenChange={setResuming} />
+      <InvoiceDetailDialog invoiceId={invoiceDetailId} onClose={() => setInvoiceDetailId(null)} />
     </AppShell>
   );
 }
 
 // ---------------------------------------------------------------------------
+
+/** Linha sintética de fatura agrupada (Sprint 4.8, Parte A) — substitui as
+ * compras individuais de CREDIT_CARD; clique abre o detalhe reaproveitando
+ * InvoiceDetailDialog (mesmo componente da seção de cartões). */
+function InvoiceRowMobile({
+  invoice,
+  card,
+  ownerName,
+  onClick,
+}: {
+  invoice: Invoice;
+  card: Account | undefined;
+  ownerName: string | undefined;
+  onClick: () => void;
+}) {
+  const overdue = invoice.status === "OPEN" && invoice.closingDate < todayISO();
+  return (
+    <li>
+      <button
+        type="button"
+        onClick={onClick}
+        className="flex w-full items-start gap-3 p-4 text-left hover:bg-secondary/40"
+      >
+        <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-brand/10 text-[10px] font-bold uppercase text-brand">
+          FT
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-3">
+            <p className="truncate text-sm font-medium">
+              Fatura {card?.name ?? "cartão"}
+              {ownerName ? ` — ${ownerName}` : ""}
+            </p>
+            <MoneyText cents={invoice.calculatedAmount} kind="expense" className="text-sm" sign />
+          </div>
+          <p className="mt-0.5 truncate text-xs text-muted-foreground">
+            {invoice.status === "CLOSED" || invoice.status === "PARTIAL"
+              ? `vence ${formatDate(invoice.dueDate)}`
+              : "fatura do período"}
+          </p>
+          <div className="mt-2">
+            <StatusPill status={invoice.status} overdue={overdue} />
+          </div>
+        </div>
+      </button>
+    </li>
+  );
+}
+
+function InvoiceRowDesktop({
+  invoice,
+  card,
+  ownerName,
+  selectionMode,
+  onClick,
+}: {
+  invoice: Invoice;
+  card: Account | undefined;
+  ownerName: string | undefined;
+  selectionMode: boolean;
+  onClick: () => void;
+}) {
+  const overdue = invoice.status === "OPEN" && invoice.closingDate < todayISO();
+  return (
+    <tr
+      className="cursor-pointer border-b border-border/50 last:border-b-0 hover:bg-secondary/40"
+      onClick={onClick}
+    >
+      {selectionMode && <td className="px-3 py-3.5" />}
+      <td className="px-5 py-3.5">
+        <div className="font-medium">
+          Fatura {card?.name ?? "cartão"}
+          {ownerName ? ` — ${ownerName}` : ""}
+        </div>
+        <div className="mt-0.5 flex flex-wrap gap-1.5">
+          <Badge variant="outline" className="text-[10px]">
+            fatura
+          </Badge>
+        </div>
+      </td>
+      <td className="px-5 py-3.5 text-muted-foreground">—</td>
+      <td className="px-5 py-3.5 text-muted-foreground">{card?.name ?? "sem conta"}</td>
+      <td className="tnum px-5 py-3.5 text-muted-foreground">
+        {invoice.status === "CLOSED" || invoice.status === "PARTIAL"
+          ? formatDate(invoice.dueDate)
+          : "—"}
+      </td>
+      <td className="px-5 py-3.5">
+        <StatusPill status={invoice.status} overdue={overdue} />
+      </td>
+      <td className="px-5 py-3.5 text-right">{formatMoney(invoice.calculatedAmount)}</td>
+      <td className="px-2 py-3.5" />
+    </tr>
+  );
+}
 
 function TxBadges({ t, memberMap }: { t: Transaction; memberMap: Map<string, Member> }) {
   return (
@@ -578,6 +743,11 @@ function TxBadges({ t, memberMap }: { t: Transaction; memberMap: Map<string, Mem
       {t.hasAttachments && (
         <span title="Tem anexo" className="inline-flex items-center text-muted-foreground">
           <Paperclip className="h-3 w-3" />
+        </span>
+      )}
+      {t.notes && (
+        <span title={t.notes} className="inline-flex items-center text-muted-foreground">
+          <StickyNote className="h-3 w-3" />
         </span>
       )}
     </>

@@ -142,6 +142,10 @@ export interface Transaction {
   recurrence?: TransactionRecurrence;
   installment?: TransactionInstallment;
   cardInvoiceMonth?: string;
+  /** id da fatura de cartão à qual este lançamento pertence (compras de CREDIT_CARD). */
+  cardInvoiceId?: string | null;
+  /** Observação livre do lançamento — distinta de description (título) e payeeName (pago a). */
+  notes?: string;
   /** true = tem ao menos um comprovante/boleto anexado (ícone de clipe na lista). */
   hasAttachments?: boolean;
 }
@@ -155,6 +159,7 @@ export interface TransactionBulkImportRow {
   installmentNumber: number | null;
   installmentTotal: number | null;
   categoryId: string | null;
+  notes: string | null;
 }
 
 export interface TransactionBulkImportSummary {
@@ -163,7 +168,8 @@ export interface TransactionBulkImportSummary {
 }
 
 /** Como o backend resolveu a coluna opcional de categoria do CSV (Sprint 4.7). */
-export type CategoryResolutionMethod = "uuid" | "code" | "name" | "default" | "ambiguous" | "notfound";
+export type CategoryResolutionMethod =
+  "uuid" | "code" | "name" | "default" | "ambiguous" | "notfound";
 
 export interface CategoryResolutionResult {
   categoryId: string | null;
@@ -194,6 +200,7 @@ export interface InvoicePurchase {
   installment?: string;
   /** Data da compra/parcela (competenceDate), YYYY-MM-DD. */
   date: string;
+  notes?: string;
   category?: {
     id: string;
     name: string;

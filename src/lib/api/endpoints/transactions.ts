@@ -49,6 +49,7 @@ export const transactionsApi = {
       amount: body.amount,
       description: body.description,
       payeeName: body.payeeName,
+      notes: body.notes,
       competenceDate: body.competenceDate,
       status: body.status ?? "PLANNED",
       // O backend exige settlementDate quando SETTLED.
@@ -64,6 +65,7 @@ export const transactionsApi = {
     const updated = await api.patch<ApiTransaction>(`/transactions/${id}`, {
       description: body.description,
       payeeName: body.payeeName,
+      notes: body.notes,
       categoryId: body.categoryId,
       accountId: body.accountId ?? undefined,
       amount: body.amount,

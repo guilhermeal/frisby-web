@@ -85,6 +85,9 @@ export interface ApiTransaction {
   installmentTotal: number | null;
   /** Preenchido quando a transação é PERNA de uma transferência. */
   transferId: string | null;
+  /** Preenchido quando a origem é CREDIT_CARD — a fatura à qual a compra pertence. */
+  cardInvoiceId?: string | null;
+  notes?: string | null;
   hasAttachments?: boolean;
   /** Presente só quando a rota faz include de category (ex.: detalhe de fatura). */
   category?: {
@@ -254,6 +257,8 @@ export function mapTransaction(t: ApiTransaction): Transaction {
             ...(t.installmentGroupId ? { groupId: t.installmentGroupId } : {}),
           }
         : undefined,
+    cardInvoiceId: t.cardInvoiceId ?? undefined,
+    notes: t.notes ?? undefined,
     hasAttachments: t.hasAttachments ?? false,
   };
 }
@@ -282,6 +287,7 @@ export function mapInvoice(inv: ApiInvoice, purchases: ApiTransaction[] = []): I
       description: t.description ?? "",
       amount: t.amount,
       date: dateOnly(t.competenceDate),
+      notes: t.notes ?? undefined,
       installment:
         t.installmentNumber && t.installmentTotal
           ? `${t.installmentNumber}/${t.installmentTotal}`

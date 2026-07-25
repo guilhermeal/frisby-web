@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -131,6 +132,7 @@ export function TransactionForm({
   const [shares, setShares] = useState<Share[]>([]);
   const [description, setDescription] = useState("");
   const [payeeName, setPayeeName] = useState("");
+  const [notes, setNotes] = useState("");
   const [mode, setMode] = useState<ExtraMode>("single");
   const [interval, setInterval] = useState<RecurrenceInterval>("MONTHLY");
   const [forever, setForever] = useState(false);
@@ -156,6 +158,7 @@ export function TransactionForm({
       setShares(transaction.shares ?? []);
       setDescription(transaction.description);
       setPayeeName(transaction.payeeName ?? "");
+      setNotes(transaction.notes ?? "");
       setMode("single");
     } else {
       setType(defaultType);
@@ -170,6 +173,7 @@ export function TransactionForm({
       setShares([]);
       setDescription("");
       setPayeeName("");
+      setNotes("");
       setMode("single");
       setInterval("MONTHLY");
       setForever(false);
@@ -237,6 +241,7 @@ export function TransactionForm({
           body: {
             description,
             payeeName: payeeName || undefined,
+            notes: notes || undefined,
             categoryId,
             accountId: accountId ?? null,
             amount,
@@ -288,6 +293,7 @@ export function TransactionForm({
           shares: scope === "MEMBERS" ? shares : undefined,
           description,
           payeeName: payeeName || undefined,
+          notes: notes || undefined,
         });
         toast.success(status === "SETTLED" ? "Lançamento baixado" : "Lançamento previsto criado");
       }
@@ -591,6 +597,19 @@ export function TransactionForm({
             )}
           </div>
         )}
+
+        {/* Observações (opcional) — comentário livre, distinto de descrição/pago a */}
+        <div className="space-y-1.5">
+          <Label htmlFor="tx-notes">Observações (opcional)</Label>
+          <Textarea
+            id="tx-notes"
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="Anotações livres sobre este lançamento…"
+            maxLength={2000}
+            rows={3}
+          />
+        </div>
 
         {/* Anexos — comprovante/boleto/nota fiscal. Só disponível em edição
             (lançamento precisa existir para vincular o anexo). */}
