@@ -406,6 +406,108 @@ export interface OverviewReport {
   total: { assets: string; liabilities: string; netWorth: string };
 }
 
+// ---- jornada financeira (Sprint 5.0) ----
+
+export interface MasterGroupCategoryRef {
+  id: string;
+  name: string;
+}
+
+export interface MasterGroup {
+  id: string;
+  name: string;
+  color: string | null;
+  icon: string | null;
+  includeContributions: boolean;
+  order: number;
+  categories: MasterGroupCategoryRef[];
+}
+
+export interface UnlinkedCategory {
+  id: string;
+  name: string;
+  color: string | null;
+  icon: string | null;
+}
+
+export interface FlowStageTarget {
+  masterGroupId: string;
+  /** Fração 0..1 (não pontos percentuais). */
+  minPct: number;
+  maxPct: number;
+}
+
+export interface FlowStage {
+  id: string;
+  name: string;
+  description: string | null;
+  color: string | null;
+  order: number;
+  targets: FlowStageTarget[];
+}
+
+export interface Flow {
+  id: string;
+  name: string;
+  active: boolean;
+  isExample: boolean;
+  stages: FlowStage[];
+}
+
+export type StageSuggestionStatus = "PENDING" | "ACCEPTED" | "DISMISSED";
+
+export interface StageRef {
+  id: string;
+  name: string;
+  color: string | null;
+  order: number;
+  description?: string | null;
+}
+
+export interface PendingSuggestion {
+  snapshotMonth: string; // "YYYY-MM"
+  suggestedStage: StageRef | null;
+  matchedStage: StageRef | null;
+}
+
+export interface JourneyStatus {
+  flow: { id: string; name: string; active: boolean; isExample: boolean } | null;
+  currentStage: StageRef | null;
+  stages: StageRef[];
+  evaluationDay: number;
+  autoApply: boolean;
+  pendingSuggestion: PendingSuggestion | null;
+}
+
+export interface SnapshotGroup {
+  masterGroupId: string; // "__others__" para o grupo Outros
+  name: string;
+  color: string | null;
+  icon: string | null;
+  realized: string; // cents
+  pct: number; // fração 0..1
+  includeContributions: boolean;
+  isOthers: boolean;
+}
+
+export type SnapshotReason = "matched" | "no_flow" | "no_match" | "no_income";
+
+export interface JourneySnapshot {
+  month: string; // "YYYY-MM"
+  currency: Currency;
+  totalIncome: string;
+  totalExpense: string;
+  groups: SnapshotGroup[];
+  matchedStage: StageRef | null;
+  appliedStage: StageRef | null;
+  suggestedStage: StageRef | null;
+  suggestionStatus: StageSuggestionStatus | null;
+  onTarget: boolean;
+  reason: SnapshotReason;
+  persisted: boolean;
+  computedAt: string;
+}
+
 // ---- filtros ----
 
 export interface TransactionFilters {

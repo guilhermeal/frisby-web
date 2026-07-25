@@ -41,4 +41,14 @@ export const qk = {
     ["attachments", "transaction", transactionId] as const,
   invoicePaymentAttachments: (invoicePaymentId: string) =>
     ["attachments", "invoice-payment", invoicePaymentId] as const,
+  // Jornada financeira (Sprint 5.0) — prefixo comum "journey" permite
+  // invalidar tudo do domínio de uma vez (qc.invalidateQueries(["journey"])).
+  masterGroups: (entityId: string) => ["journey", "master-groups", entityId] as const,
+  unlinkedCategories: (entityId: string) => ["journey", "unlinked-categories", entityId] as const,
+  flows: (entityId: string) => ["journey", "flows", entityId] as const,
+  journeyStatus: (entityId: string) => ["journey", "status", entityId] as const,
+  journeySnapshot: (entityId: string, month: string) =>
+    ["journey", "snapshot", entityId, month] as const,
+  journeyHistory: (entityId: string, months: number) =>
+    ["journey", "history", entityId, months] as const,
 };

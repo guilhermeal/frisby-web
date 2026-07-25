@@ -7,8 +7,13 @@ import type {
   AccountType,
   Category,
   EntityType,
+  Flow,
+  FlowStage,
   Invoice,
   InvoiceStatus,
+  JourneySnapshot,
+  JourneyStatus,
+  MasterGroup,
   Member,
   MemberRole,
   Transaction,
@@ -304,4 +309,101 @@ export function mapInvoice(inv: ApiInvoice, purchases: ApiTransaction[] = []): I
     })),
     payments: (inv.invoicePayments ?? []).map(mapPayment),
   };
+}
+
+// ---------------------------------------------------------------------------
+// Jornada financeira (Sprint 5.0) — shapes já vêm próximos do formato final;
+// os mappers aqui só tipam e aplicam defaults, sem tradução pesada de nomes.
+// ---------------------------------------------------------------------------
+
+export interface ApiMasterGroup {
+  id: string;
+  name: string;
+  color: string | null;
+  icon: string | null;
+  includeContributions: boolean;
+  order: number;
+  categories: { id: string; name: string }[];
+}
+
+export function mapMasterGroup(g: ApiMasterGroup): MasterGroup {
+  return {
+    id: g.id,
+    name: g.name,
+    color: g.color,
+    icon: g.icon,
+    includeContributions: g.includeContributions,
+    order: g.order,
+    categories: g.categories,
+  };
+}
+
+export interface ApiFlowStageTarget {
+  masterGroupId: string;
+  minPct: number;
+  maxPct: number;
+}
+
+export interface ApiFlowStage {
+  id: string;
+  name: string;
+  description: string | null;
+  color: string | null;
+  order: number;
+  targets: ApiFlowStageTarget[];
+}
+
+export function mapFlowStage(s: ApiFlowStage): FlowStage {
+  return {
+    id: s.id,
+    name: s.name,
+    description: s.description,
+    color: s.color,
+    order: s.order,
+    targets: s.targets,
+  };
+}
+
+export interface ApiFlow {
+  id: string;
+  name: string;
+  active: boolean;
+  isExample: boolean;
+  stages: ApiFlowStage[];
+}
+
+export function mapFlow(f: ApiFlow): Flow {
+  return {
+    id: f.id,
+    name: f.name,
+    active: f.active,
+    isExample: f.isExample,
+    stages: f.stages.map(mapFlowStage),
+  };
+}
+
+export interface ApiJourneyStatus {
+  flow: { id: string; name: string; active: boolean; isExample: boolean } | null;
+  currentStage: JourneyStatus["currentStage"];
+  stages: JourneyStatus["stages"];
+  evaluationDay: number;
+  autoApply: boolean;
+  pendingSuggestion: JourneyStatus["pendingSuggestion"];
+}
+
+export function mapJourneyStatus(s: ApiJourneyStatus): JourneyStatus {
+  return {
+    flow: s.flow,
+    currentStage: s.currentStage,
+    stages: s.stages,
+    evaluationDay: s.evaluationDay,
+    autoApply: s.autoApply,
+    pendingSuggestion: s.pendingSuggestion,
+  };
+}
+
+export type ApiJourneySnapshot = JourneySnapshot;
+
+export function mapJourneySnapshot(s: ApiJourneySnapshot): JourneySnapshot {
+  return s;
 }

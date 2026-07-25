@@ -37,7 +37,7 @@ import { useCurrentEntity } from "@/lib/auth/use-current-entity";
 import { PERMISSIONS } from "@/lib/auth/use-permissions";
 import { apiErrorMessage } from "@/lib/api/error-messages";
 import { formatMoney } from "@/lib/money";
-import { currentMonth } from "@/lib/format";
+import { currentMonth, shortMonth } from "@/lib/format";
 
 export const Route = createFileRoute("/_authenticated/relatorios")({
   component: Relatorios,
@@ -125,12 +125,6 @@ const tooltipStyle = {
   borderRadius: 12,
   fontSize: 12,
 };
-
-function shortMonth(ym: string) {
-  return new Intl.DateTimeFormat("pt-BR", { month: "short", timeZone: "UTC" }).format(
-    new Date(`${ym}-01`),
-  );
-}
 
 // ---------------------------------------------------------------------------
 // 1. Fluxo de caixa

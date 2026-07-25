@@ -12,3 +12,4 @@ export * from "./api/transfers";
 export * from "./api/budgets";
 export * from "./api/reports";
 export * from "./api/attachments";
+export * from "./api/journey";

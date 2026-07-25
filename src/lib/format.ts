@@ -59,3 +59,10 @@ export function addMonths(ym: string, delta: number): string {
   const d = new Date(Date.UTC(y, m - 1 + delta, 1));
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
 }
+
+/** Abreviação de mês em pt-BR a partir de `YYYY-MM` — eixo X de séries mensais. */
+export function shortMonth(ym: string, locale = "pt-BR"): string {
+  return new Intl.DateTimeFormat(locale, { month: "short", timeZone: "UTC" }).format(
+    new Date(`${ym}-01`),
+  );
+}

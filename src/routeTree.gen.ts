@@ -24,11 +24,13 @@ import { Route as AuthenticatedOnboardingRouteImport } from './routes/_authentic
 import { Route as AuthenticatedMembrosRouteImport } from './routes/_authenticated/membros'
 import { Route as AuthenticatedMaisRouteImport } from './routes/_authenticated/mais'
 import { Route as AuthenticatedLancamentosRouteImport } from './routes/_authenticated/lancamentos'
+import { Route as AuthenticatedJornadaRouteImport } from './routes/_authenticated/jornada'
 import { Route as AuthenticatedInvestimentosRouteImport } from './routes/_authenticated/investimentos'
 import { Route as AuthenticatedContasRouteImport } from './routes/_authenticated/contas'
 import { Route as AuthenticatedConfiguracoesRouteImport } from './routes/_authenticated/configuracoes'
 import { Route as AuthenticatedCategoriasRouteImport } from './routes/_authenticated/categorias'
 import { Route as AuthenticatedCartoesRouteImport } from './routes/_authenticated/cartoes'
+import { Route as AuthenticatedJornadaConfiguracaoRouteImport } from './routes/_authenticated/jornada_.configuracao'
 import { Route as AuthenticatedCartoesCardIdRouteImport } from './routes/_authenticated/cartoes_.$cardId'
 
 const VerifyEmailRoute = VerifyEmailRouteImport.update({
@@ -107,6 +109,11 @@ const AuthenticatedLancamentosRoute =
     path: '/lancamentos',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedJornadaRoute = AuthenticatedJornadaRouteImport.update({
+  id: '/jornada',
+  path: '/jornada',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedInvestimentosRoute =
   AuthenticatedInvestimentosRouteImport.update({
     id: '/investimentos',
@@ -134,6 +141,12 @@ const AuthenticatedCartoesRoute = AuthenticatedCartoesRouteImport.update({
   path: '/cartoes',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedJornadaConfiguracaoRoute =
+  AuthenticatedJornadaConfiguracaoRouteImport.update({
+    id: '/jornada_/configuracao',
+    path: '/jornada/configuracao',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedCartoesCardIdRoute =
   AuthenticatedCartoesCardIdRouteImport.update({
     id: '/cartoes_/$cardId',
@@ -153,6 +166,7 @@ export interface FileRoutesByFullPath {
   '/configuracoes': typeof AuthenticatedConfiguracoesRoute
   '/contas': typeof AuthenticatedContasRoute
   '/investimentos': typeof AuthenticatedInvestimentosRoute
+  '/jornada': typeof AuthenticatedJornadaRoute
   '/lancamentos': typeof AuthenticatedLancamentosRoute
   '/mais': typeof AuthenticatedMaisRoute
   '/membros': typeof AuthenticatedMembrosRoute
@@ -162,6 +176,7 @@ export interface FileRoutesByFullPath {
   '/relatorios': typeof AuthenticatedRelatoriosRoute
   '/transferencias': typeof AuthenticatedTransferenciasRoute
   '/cartoes/$cardId': typeof AuthenticatedCartoesCardIdRoute
+  '/jornada/configuracao': typeof AuthenticatedJornadaConfiguracaoRoute
 }
 export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
@@ -174,6 +189,7 @@ export interface FileRoutesByTo {
   '/configuracoes': typeof AuthenticatedConfiguracoesRoute
   '/contas': typeof AuthenticatedContasRoute
   '/investimentos': typeof AuthenticatedInvestimentosRoute
+  '/jornada': typeof AuthenticatedJornadaRoute
   '/lancamentos': typeof AuthenticatedLancamentosRoute
   '/mais': typeof AuthenticatedMaisRoute
   '/membros': typeof AuthenticatedMembrosRoute
@@ -184,6 +200,7 @@ export interface FileRoutesByTo {
   '/transferencias': typeof AuthenticatedTransferenciasRoute
   '/': typeof AuthenticatedIndexRoute
   '/cartoes/$cardId': typeof AuthenticatedCartoesCardIdRoute
+  '/jornada/configuracao': typeof AuthenticatedJornadaConfiguracaoRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -198,6 +215,7 @@ export interface FileRoutesById {
   '/_authenticated/configuracoes': typeof AuthenticatedConfiguracoesRoute
   '/_authenticated/contas': typeof AuthenticatedContasRoute
   '/_authenticated/investimentos': typeof AuthenticatedInvestimentosRoute
+  '/_authenticated/jornada': typeof AuthenticatedJornadaRoute
   '/_authenticated/lancamentos': typeof AuthenticatedLancamentosRoute
   '/_authenticated/mais': typeof AuthenticatedMaisRoute
   '/_authenticated/membros': typeof AuthenticatedMembrosRoute
@@ -208,6 +226,7 @@ export interface FileRoutesById {
   '/_authenticated/transferencias': typeof AuthenticatedTransferenciasRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
   '/_authenticated/cartoes_/$cardId': typeof AuthenticatedCartoesCardIdRoute
+  '/_authenticated/jornada_/configuracao': typeof AuthenticatedJornadaConfiguracaoRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -223,6 +242,7 @@ export interface FileRouteTypes {
     | '/configuracoes'
     | '/contas'
     | '/investimentos'
+    | '/jornada'
     | '/lancamentos'
     | '/mais'
     | '/membros'
@@ -232,6 +252,7 @@ export interface FileRouteTypes {
     | '/relatorios'
     | '/transferencias'
     | '/cartoes/$cardId'
+    | '/jornada/configuracao'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/auth'
@@ -244,6 +265,7 @@ export interface FileRouteTypes {
     | '/configuracoes'
     | '/contas'
     | '/investimentos'
+    | '/jornada'
     | '/lancamentos'
     | '/mais'
     | '/membros'
@@ -254,6 +276,7 @@ export interface FileRouteTypes {
     | '/transferencias'
     | '/'
     | '/cartoes/$cardId'
+    | '/jornada/configuracao'
   id:
     | '__root__'
     | '/_authenticated'
@@ -267,6 +290,7 @@ export interface FileRouteTypes {
     | '/_authenticated/configuracoes'
     | '/_authenticated/contas'
     | '/_authenticated/investimentos'
+    | '/_authenticated/jornada'
     | '/_authenticated/lancamentos'
     | '/_authenticated/mais'
     | '/_authenticated/membros'
@@ -277,6 +301,7 @@ export interface FileRouteTypes {
     | '/_authenticated/transferencias'
     | '/_authenticated/'
     | '/_authenticated/cartoes_/$cardId'
+    | '/_authenticated/jornada_/configuracao'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -395,6 +420,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedLancamentosRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/jornada': {
+      id: '/_authenticated/jornada'
+      path: '/jornada'
+      fullPath: '/jornada'
+      preLoaderRoute: typeof AuthenticatedJornadaRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/investimentos': {
       id: '/_authenticated/investimentos'
       path: '/investimentos'
@@ -430,6 +462,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCartoesRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/jornada_/configuracao': {
+      id: '/_authenticated/jornada_/configuracao'
+      path: '/jornada/configuracao'
+      fullPath: '/jornada/configuracao'
+      preLoaderRoute: typeof AuthenticatedJornadaConfiguracaoRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/cartoes_/$cardId': {
       id: '/_authenticated/cartoes_/$cardId'
       path: '/cartoes/$cardId'
@@ -446,6 +485,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedConfiguracoesRoute: typeof AuthenticatedConfiguracoesRoute
   AuthenticatedContasRoute: typeof AuthenticatedContasRoute
   AuthenticatedInvestimentosRoute: typeof AuthenticatedInvestimentosRoute
+  AuthenticatedJornadaRoute: typeof AuthenticatedJornadaRoute
   AuthenticatedLancamentosRoute: typeof AuthenticatedLancamentosRoute
   AuthenticatedMaisRoute: typeof AuthenticatedMaisRoute
   AuthenticatedMembrosRoute: typeof AuthenticatedMembrosRoute
@@ -456,6 +496,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedTransferenciasRoute: typeof AuthenticatedTransferenciasRoute
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
   AuthenticatedCartoesCardIdRoute: typeof AuthenticatedCartoesCardIdRoute
+  AuthenticatedJornadaConfiguracaoRoute: typeof AuthenticatedJornadaConfiguracaoRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
@@ -464,6 +505,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedConfiguracoesRoute: AuthenticatedConfiguracoesRoute,
   AuthenticatedContasRoute: AuthenticatedContasRoute,
   AuthenticatedInvestimentosRoute: AuthenticatedInvestimentosRoute,
+  AuthenticatedJornadaRoute: AuthenticatedJornadaRoute,
   AuthenticatedLancamentosRoute: AuthenticatedLancamentosRoute,
   AuthenticatedMaisRoute: AuthenticatedMaisRoute,
   AuthenticatedMembrosRoute: AuthenticatedMembrosRoute,
@@ -474,6 +516,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedTransferenciasRoute: AuthenticatedTransferenciasRoute,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
   AuthenticatedCartoesCardIdRoute: AuthenticatedCartoesCardIdRoute,
+  AuthenticatedJornadaConfiguracaoRoute: AuthenticatedJornadaConfiguracaoRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =

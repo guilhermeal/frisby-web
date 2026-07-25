@@ -20,6 +20,7 @@ export const PERMISSIONS = {
   TRANSACTION_READ: "transaction.read",
   REPORT_VIEW: "report.view",
   BUDGET_MANAGE: "budget.manage",
+  JOURNEY_MANAGE: "journey.manage",
 } as const;
 
 export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];

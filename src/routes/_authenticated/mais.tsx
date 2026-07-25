@@ -10,6 +10,7 @@ import {
   Globe,
   ArrowLeftRight,
   ChevronRight,
+  Route as RouteIcon,
 } from "lucide-react";
 import { AppShell, PageHeader } from "@/components/frisby/app-shell";
 
@@ -32,6 +33,12 @@ const ITEMS = [
   },
   { to: "/categorias", label: "Categorias", desc: "Árvore de despesas e receitas", icon: Tags },
   { to: "/orcamentos", label: "Orçamentos", desc: "Metas por categoria", icon: Target },
+  {
+    to: "/jornada",
+    label: "Jornada financeira",
+    desc: "Fases, grupos master e evolução",
+    icon: RouteIcon,
+  },
   {
     to: "/investimentos",
     label: "Investimentos",
