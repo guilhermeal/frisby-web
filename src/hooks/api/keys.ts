@@ -51,4 +51,8 @@ export const qk = {
     ["journey", "snapshot", entityId, month] as const,
   journeyHistory: (entityId: string, months: number) =>
     ["journey", "history", entityId, months] as const,
+  // Sonhos & Metas (Sprint 6.1).
+  goals: (entityId: string) => ["goals", "list", entityId] as const,
+  goal: (entityId: string, goalId: string) => ["goals", "detail", entityId, goalId] as const,
+  goalsViability: (entityId: string) => ["goals", "viability", entityId] as const,
 };

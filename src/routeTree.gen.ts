@@ -17,6 +17,7 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
 import { Route as AuthenticatedTransferenciasRouteImport } from './routes/_authenticated/transferencias'
+import { Route as AuthenticatedSonhosMetasRouteImport } from './routes/_authenticated/sonhos-metas'
 import { Route as AuthenticatedRelatoriosRouteImport } from './routes/_authenticated/relatorios'
 import { Route as AuthenticatedPanoramaRouteImport } from './routes/_authenticated/panorama'
 import { Route as AuthenticatedOrcamentosRouteImport } from './routes/_authenticated/orcamentos'
@@ -30,6 +31,7 @@ import { Route as AuthenticatedContasRouteImport } from './routes/_authenticated
 import { Route as AuthenticatedConfiguracoesRouteImport } from './routes/_authenticated/configuracoes'
 import { Route as AuthenticatedCategoriasRouteImport } from './routes/_authenticated/categorias'
 import { Route as AuthenticatedCartoesRouteImport } from './routes/_authenticated/cartoes'
+import { Route as AuthenticatedSonhosMetasGoalIdRouteImport } from './routes/_authenticated/sonhos-metas_.$goalId'
 import { Route as AuthenticatedJornadaConfiguracaoRouteImport } from './routes/_authenticated/jornada_.configuracao'
 import { Route as AuthenticatedCartoesCardIdRouteImport } from './routes/_authenticated/cartoes_.$cardId'
 
@@ -71,6 +73,12 @@ const AuthenticatedTransferenciasRoute =
   AuthenticatedTransferenciasRouteImport.update({
     id: '/transferencias',
     path: '/transferencias',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedSonhosMetasRoute =
+  AuthenticatedSonhosMetasRouteImport.update({
+    id: '/sonhos-metas',
+    path: '/sonhos-metas',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedRelatoriosRoute = AuthenticatedRelatoriosRouteImport.update({
@@ -141,6 +149,12 @@ const AuthenticatedCartoesRoute = AuthenticatedCartoesRouteImport.update({
   path: '/cartoes',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedSonhosMetasGoalIdRoute =
+  AuthenticatedSonhosMetasGoalIdRouteImport.update({
+    id: '/sonhos-metas_/$goalId',
+    path: '/sonhos-metas/$goalId',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedJornadaConfiguracaoRoute =
   AuthenticatedJornadaConfiguracaoRouteImport.update({
     id: '/jornada_/configuracao',
@@ -174,9 +188,11 @@ export interface FileRoutesByFullPath {
   '/orcamentos': typeof AuthenticatedOrcamentosRoute
   '/panorama': typeof AuthenticatedPanoramaRoute
   '/relatorios': typeof AuthenticatedRelatoriosRoute
+  '/sonhos-metas': typeof AuthenticatedSonhosMetasRoute
   '/transferencias': typeof AuthenticatedTransferenciasRoute
   '/cartoes/$cardId': typeof AuthenticatedCartoesCardIdRoute
   '/jornada/configuracao': typeof AuthenticatedJornadaConfiguracaoRoute
+  '/sonhos-metas/$goalId': typeof AuthenticatedSonhosMetasGoalIdRoute
 }
 export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
@@ -197,10 +213,12 @@ export interface FileRoutesByTo {
   '/orcamentos': typeof AuthenticatedOrcamentosRoute
   '/panorama': typeof AuthenticatedPanoramaRoute
   '/relatorios': typeof AuthenticatedRelatoriosRoute
+  '/sonhos-metas': typeof AuthenticatedSonhosMetasRoute
   '/transferencias': typeof AuthenticatedTransferenciasRoute
   '/': typeof AuthenticatedIndexRoute
   '/cartoes/$cardId': typeof AuthenticatedCartoesCardIdRoute
   '/jornada/configuracao': typeof AuthenticatedJornadaConfiguracaoRoute
+  '/sonhos-metas/$goalId': typeof AuthenticatedSonhosMetasGoalIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -223,10 +241,12 @@ export interface FileRoutesById {
   '/_authenticated/orcamentos': typeof AuthenticatedOrcamentosRoute
   '/_authenticated/panorama': typeof AuthenticatedPanoramaRoute
   '/_authenticated/relatorios': typeof AuthenticatedRelatoriosRoute
+  '/_authenticated/sonhos-metas': typeof AuthenticatedSonhosMetasRoute
   '/_authenticated/transferencias': typeof AuthenticatedTransferenciasRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
   '/_authenticated/cartoes_/$cardId': typeof AuthenticatedCartoesCardIdRoute
   '/_authenticated/jornada_/configuracao': typeof AuthenticatedJornadaConfiguracaoRoute
+  '/_authenticated/sonhos-metas_/$goalId': typeof AuthenticatedSonhosMetasGoalIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -250,9 +270,11 @@ export interface FileRouteTypes {
     | '/orcamentos'
     | '/panorama'
     | '/relatorios'
+    | '/sonhos-metas'
     | '/transferencias'
     | '/cartoes/$cardId'
     | '/jornada/configuracao'
+    | '/sonhos-metas/$goalId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/auth'
@@ -273,10 +295,12 @@ export interface FileRouteTypes {
     | '/orcamentos'
     | '/panorama'
     | '/relatorios'
+    | '/sonhos-metas'
     | '/transferencias'
     | '/'
     | '/cartoes/$cardId'
     | '/jornada/configuracao'
+    | '/sonhos-metas/$goalId'
   id:
     | '__root__'
     | '/_authenticated'
@@ -298,10 +322,12 @@ export interface FileRouteTypes {
     | '/_authenticated/orcamentos'
     | '/_authenticated/panorama'
     | '/_authenticated/relatorios'
+    | '/_authenticated/sonhos-metas'
     | '/_authenticated/transferencias'
     | '/_authenticated/'
     | '/_authenticated/cartoes_/$cardId'
     | '/_authenticated/jornada_/configuracao'
+    | '/_authenticated/sonhos-metas_/$goalId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -369,6 +395,13 @@ declare module '@tanstack/react-router' {
       path: '/transferencias'
       fullPath: '/transferencias'
       preLoaderRoute: typeof AuthenticatedTransferenciasRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/sonhos-metas': {
+      id: '/_authenticated/sonhos-metas'
+      path: '/sonhos-metas'
+      fullPath: '/sonhos-metas'
+      preLoaderRoute: typeof AuthenticatedSonhosMetasRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/relatorios': {
@@ -462,6 +495,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCartoesRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/sonhos-metas_/$goalId': {
+      id: '/_authenticated/sonhos-metas_/$goalId'
+      path: '/sonhos-metas/$goalId'
+      fullPath: '/sonhos-metas/$goalId'
+      preLoaderRoute: typeof AuthenticatedSonhosMetasGoalIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/jornada_/configuracao': {
       id: '/_authenticated/jornada_/configuracao'
       path: '/jornada/configuracao'
@@ -493,10 +533,12 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedOrcamentosRoute: typeof AuthenticatedOrcamentosRoute
   AuthenticatedPanoramaRoute: typeof AuthenticatedPanoramaRoute
   AuthenticatedRelatoriosRoute: typeof AuthenticatedRelatoriosRoute
+  AuthenticatedSonhosMetasRoute: typeof AuthenticatedSonhosMetasRoute
   AuthenticatedTransferenciasRoute: typeof AuthenticatedTransferenciasRoute
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
   AuthenticatedCartoesCardIdRoute: typeof AuthenticatedCartoesCardIdRoute
   AuthenticatedJornadaConfiguracaoRoute: typeof AuthenticatedJornadaConfiguracaoRoute
+  AuthenticatedSonhosMetasGoalIdRoute: typeof AuthenticatedSonhosMetasGoalIdRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
@@ -513,10 +555,12 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedOrcamentosRoute: AuthenticatedOrcamentosRoute,
   AuthenticatedPanoramaRoute: AuthenticatedPanoramaRoute,
   AuthenticatedRelatoriosRoute: AuthenticatedRelatoriosRoute,
+  AuthenticatedSonhosMetasRoute: AuthenticatedSonhosMetasRoute,
   AuthenticatedTransferenciasRoute: AuthenticatedTransferenciasRoute,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
   AuthenticatedCartoesCardIdRoute: AuthenticatedCartoesCardIdRoute,
   AuthenticatedJornadaConfiguracaoRoute: AuthenticatedJornadaConfiguracaoRoute,
+  AuthenticatedSonhosMetasGoalIdRoute: AuthenticatedSonhosMetasGoalIdRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =

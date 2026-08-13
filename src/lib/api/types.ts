@@ -511,6 +511,62 @@ export interface JourneySnapshot {
   computedAt: string;
 }
 
+// ---- sonhos & metas (Sprint 6.1) ----
+
+/** Categoria descritiva da meta — só rotulagem/ícone, não afeta o cálculo. */
+export type GoalCategory = "RESERVE" | "TRIP" | "VEHICLE" | "PROPERTY" | "EDUCATION" | "OTHER";
+
+export type GoalStatus = "ACTIVE" | "PAUSED" | "ACHIEVED" | "ABANDONED";
+
+/** Viabilidade individual — se o aporte necessário cabe na sobra mensal atual. */
+export type GoalViabilityLevel = "ok" | "tight" | "unfeasible";
+
+export interface Goal {
+  id: string;
+  name: string;
+  category: GoalCategory;
+  /** Conta de investimento dedicada por trás da meta — transparente ao usuário. */
+  accountId: string;
+  targetAmount: string;
+  currency: string;
+  targetDate: string; // YYYY-MM-DD
+  status: GoalStatus;
+  /** Saldo atual da conta dedicada — é o "andamento" da meta. */
+  currentAmount: string;
+  /** % concluído (0-100), calculado pelo backend. */
+  progressPct: number;
+  /** Aporte mensal necessário para chegar ao valor-alvo até a data-alvo. */
+  requiredMonthlyContribution: string;
+  /** Projeção de conclusão no ritmo atual de aportes (pode ser null sem histórico). */
+  projectedCompletionDate: string | null;
+  viability: GoalViabilityLevel;
+  createdAt: string;
+}
+
+/** Prévia de cálculo (criar/editar) — mesma fórmula do backend, sem persistir nada. */
+export interface GoalPreview {
+  requiredMonthlyContribution: string;
+  projectedCompletionDate: string | null;
+  viability: GoalViabilityLevel;
+}
+
+export interface GoalViabilityRanking {
+  goalId: string;
+  goalName: string;
+  requiredMonthlyContribution: string;
+}
+
+/** Viabilidade agregada: soma do aporte necessário de todas as metas ATIVAS
+ * vs. a sobra mensal real da entidade. */
+export interface GoalsViability {
+  currency: string;
+  monthlySurplus: string;
+  totalRequiredContribution: string;
+  level: GoalViabilityLevel;
+  /** Metas que mais pesam no orçamento, maior aporte necessário primeiro. */
+  ranking: GoalViabilityRanking[];
+}
+
 // ---- filtros ----
 
 export interface TransactionFilters {

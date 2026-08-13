@@ -13,3 +13,4 @@ export * from "./api/budgets";
 export * from "./api/reports";
 export * from "./api/attachments";
 export * from "./api/journey";
+export * from "./api/goals";

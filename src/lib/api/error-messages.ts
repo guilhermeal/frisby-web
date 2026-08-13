@@ -51,6 +51,13 @@ const MESSAGES: Array<[prefix: string, ptBr: string]> = [
   ["Invoice is already fully paid", "Esta fatura já está totalmente paga."],
   ["Invoice not found", "Fatura não encontrada."],
   ["paidAmountSource is required", "Informe o valor na moeda da conta pagadora."],
+  // Sonhos & Metas
+  ["Goal not found", "Meta não encontrada."],
+  ["targetDate must be in the future", "O prazo da meta precisa ser no futuro."],
+  [
+    "targetAmount must be greater than current amount",
+    "O valor-alvo precisa ser maior que o saldo atual da meta.",
+  ],
   // Membros/convites
   [
     "You can only change your own sharing preference",
