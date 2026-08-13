@@ -52,6 +52,10 @@ const MESSAGES: Array<[prefix: string, ptBr: string]> = [
   ["Invoice not found", "Fatura não encontrada."],
   ["paidAmountSource is required", "Informe o valor na moeda da conta pagadora."],
   // Membros/convites
+  [
+    "You can only change your own sharing preference",
+    "Você só pode alterar sua própria preferência de compartilhamento.",
+  ],
   ["User not found", "Usuário não encontrado."],
   ["Only the owner can delete the entity", "Apenas o proprietário pode excluir a entidade."],
   ["Entity not found", "Entidade não encontrada."],

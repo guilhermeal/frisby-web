@@ -39,6 +39,7 @@ export interface ApiMembership {
   displayName: string | null;
   user: { id: string; name: string; email: string };
   role: { id: string; name: string; type: MemberRole };
+  shareWithPeers: boolean;
 }
 
 export interface ApiAccount {
@@ -199,6 +200,7 @@ export function mapMember(m: ApiMembership): Member {
     roleId: m.role.id,
     roleName: m.role.name,
     initials: initialsOf(name),
+    shareWithPeers: m.shareWithPeers,
   };
 }
 

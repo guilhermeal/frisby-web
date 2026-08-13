@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## O que é
 
-Frontend (React 19 + TypeScript strict + TanStack Start/Router/Query + Tailwind v4 + shadcn) do **Frisby**, um SaaS de finanças pessoais/empresariais em pt-BR. O backend real (Express + Prisma) vive em **`/media/DADOS/Dev/Guilherme/financial/server`** e roda na porta **3001** — ele é a fonte da verdade de rotas e shapes (o `API-CONTRACT.md` deste repo está desatualizado; confie no código do backend e nos manuais em `CLAUDE-DOCS/`).
+Frontend (React 19 + TypeScript strict + TanStack Start/Router/Query + Tailwind v4 + shadcn) do **Frisby**, um SaaS de finanças pessoais/empresariais em pt-BR. O backend real (Express + Prisma) vive em **`/media/DADOS/Dev/Guilherme/frisby-server`** e roda na porta **3001** — ele é a fonte da verdade de rotas e shapes (o `API-CONTRACT.md` deste repo está desatualizado; confie no código do backend e nos manuais em `CLAUDE-DOCS/`).
 
 ## Comandos
 
@@ -14,7 +14,7 @@ npx tsc --noEmit       # typecheck (gate obrigatório antes de concluir qualquer
 npx eslint --fix src/ e2e/
 npx playwright test                     # E2E — EXIGE dev server (:8081) e backend (:3001) rodando
 npx playwright test e2e/f2-lancamentos.spec.ts   # uma spec só
-# backend: cd /media/DADOS/Dev/Guilherme/financial/server && npm run dev
+# backend: cd /media/DADOS/Dev/Guilherme/frisby-server && npm run dev
 ```
 
 Playwright usa o Chrome do sistema (`channel: "chrome"`), workers=1, e NÃO sobe webServer próprio. Os testes criam usuários/entidades descartáveis via API (`e2e/helpers.ts`: `apiLogin`, `loginViaApi` injeta tokens no localStorage, `uniqueEmail`). Usuário de teste persistente no banco dev: `teste.frisby@example.com` / `senha12345`.

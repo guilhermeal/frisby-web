@@ -12,6 +12,8 @@ import { PermissionGate } from "@/components/frisby/permission-gate";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Switch } from "@/components/ui/switch";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   DropdownMenu,
@@ -19,7 +21,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useMembers, useRoles, useCurrentUser } from "@/hooks/api";
+import { useMembers, useRoles, useCurrentUser, useUpdateSharing } from "@/hooks/api";
 import { useCurrentEntity } from "@/lib/auth/use-current-entity";
 import { PERMISSIONS } from "@/lib/auth/use-permissions";
 import { apiErrorMessage } from "@/lib/api/error-messages";
@@ -35,6 +37,7 @@ function MembrosPage() {
 
   const membersQ = useMembers(entity?.id);
   const rolesQ = useRoles(entity?.id);
+  const updateSharing = useUpdateSharing(entity?.id);
 
   const members = membersQ.data ?? [];
   const roles = rolesQ.data ?? [];
@@ -95,6 +98,42 @@ function MembrosPage() {
                       <Badge variant="secondary" className="shrink-0 ml-2">
                         {role?.name ?? member.roleId}
                       </Badge>
+                      {isSelf && (
+                        <TooltipProvider delayDuration={200}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div className="flex items-center gap-2 ml-3 shrink-0">
+                                <span className="hidden text-xs text-muted-foreground sm:inline">
+                                  Compartilhar meus lançamentos
+                                </span>
+                                <Switch
+                                  checked={member.shareWithPeers}
+                                  disabled={updateSharing.isPending}
+                                  aria-label="Compartilhar meus lançamentos"
+                                  onCheckedChange={(checked) => {
+                                    updateSharing.mutate(
+                                      { membershipId: member.id, shareWithPeers: checked },
+                                      {
+                                        onSuccess: () =>
+                                          toast.success(
+                                            checked
+                                              ? "Seus lançamentos agora são visíveis para pares."
+                                              : "Seus lançamentos deixaram de ser compartilhados.",
+                                          ),
+                                        onError: (err) => toast.error(apiErrorMessage(err)),
+                                      },
+                                    );
+                                  }}
+                                />
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              Membros de mesma hierarquia ou abaixo poderão ver seus lançamentos e
+                              contas. Quem está acima de você já vê, independente disso.
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      )}
                       <PermissionGate permission={PERMISSIONS.MEMBER_MANAGE}>
                         {!isSelf && (
                           <DropdownMenu>

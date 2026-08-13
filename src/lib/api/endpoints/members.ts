@@ -9,6 +9,12 @@ export const membersApi = {
     const members = await api.get<ApiMembership[]>(`/entities/${entityId}/members`);
     return members.map(mapMember);
   },
+  /** Só o dono da membership pode alterar sua própria preferência de compartilhamento. */
+  updateSharing: (entityId: string, membershipId: string, shareWithPeers: boolean) =>
+    api.patch<{ id: string; shareWithPeers: boolean }>(
+      `/entities/${entityId}/members/${membershipId}/sharing`,
+      { shareWithPeers },
+    ),
 };
 
 export const rolesApi = {

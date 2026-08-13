@@ -10,6 +10,22 @@ export function useMembers(entityId: string | undefined) {
   });
 }
 
+export function useUpdateSharing(entityId: string | undefined) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      membershipId,
+      shareWithPeers,
+    }: {
+      membershipId: string;
+      shareWithPeers: boolean;
+    }) => membersApi.updateSharing(entityId!, membershipId, shareWithPeers),
+    onSuccess: () => {
+      if (entityId) qc.invalidateQueries({ queryKey: qk.members(entityId) });
+    },
+  });
+}
+
 export function useRoles(entityId: string | undefined) {
   return useQuery({
     queryKey: qk.roles(entityId ?? ""),

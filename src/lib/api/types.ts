@@ -38,6 +38,9 @@ export interface Member {
   roleId: string;
   roleName: string;
   initials: string;
+  /** Preferência pessoal: se membros de hierarquia igual/inferior podem ver
+   * os lançamentos/contas deste membro. Só o dono da membership pode alterar. */
+  shareWithPeers: boolean;
 }
 
 export interface Role {
