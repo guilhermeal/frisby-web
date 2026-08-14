@@ -99,6 +99,9 @@ export interface RecurrenceRule {
   categoryId: string;
   amount: string;
   description: string;
+  /** Pagamento a terceiro (ex.: "paguei a Fulano") — informativo, opcional. */
+  payeeName?: string;
+  notes?: string;
   scope: TxScope;
   interval: "WEEKLY" | "MONTHLY" | "YEARLY";
   dayOfPeriod: number | null;

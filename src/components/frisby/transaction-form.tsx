@@ -261,6 +261,7 @@ export function TransactionForm({
           categoryId: categoryId!,
           description: description || undefined,
           payeeName: payeeName || undefined,
+          notes: notes || undefined,
           scope,
           shares: scope === "MEMBERS" ? shares : undefined,
         });
@@ -272,6 +273,8 @@ export function TransactionForm({
           categoryId: categoryId!,
           amount,
           description: description || undefined,
+          payeeName: payeeName || undefined,
+          notes: notes || undefined,
           scope,
           shares: scope === "MEMBERS" ? sharesToRatios(shares, amount) : undefined,
           interval,

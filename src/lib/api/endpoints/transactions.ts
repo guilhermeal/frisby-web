@@ -162,6 +162,8 @@ interface ApiRecurrenceRule {
   categoryId: string;
   amount: string;
   description: string | null;
+  payeeName?: string | null;
+  notes?: string | null;
   scope: TxScope;
   interval: "WEEKLY" | "MONTHLY" | "YEARLY";
   dayOfPeriod: number | null;
@@ -178,6 +180,8 @@ function mapRule(r: ApiRecurrenceRule): RecurrenceRule {
     categoryId: r.categoryId,
     amount: r.amount,
     description: r.description ?? "",
+    payeeName: r.payeeName ?? undefined,
+    notes: r.notes ?? undefined,
     scope: r.scope,
     interval: r.interval,
     dayOfPeriod: r.dayOfPeriod,
@@ -193,6 +197,8 @@ export interface CreateRecurrenceBody {
   categoryId: string;
   amount: string;
   description?: string;
+  payeeName?: string;
+  notes?: string;
   scope: TxScope;
   shares?: Array<{ memberId: string; shareRatio: number }>;
   interval: "WEEKLY" | "MONTHLY" | "YEARLY";
@@ -221,6 +227,8 @@ export const recurrencesApi = {
       mode: "this" | "future";
       fromDate: string;
       description?: string;
+      payeeName?: string;
+      notes?: string | null;
       amount?: string;
       categoryId?: string;
     },
@@ -250,6 +258,7 @@ export interface CreateInstallmentsBody {
   description?: string;
   /** Pagamento a terceiro — informativo, opcional. */
   payeeName?: string;
+  notes?: string;
   scope: TxScope;
   shares?: Array<{ memberId: string; shareAmount: string }>;
 }
