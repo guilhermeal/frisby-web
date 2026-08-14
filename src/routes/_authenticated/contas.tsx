@@ -21,6 +21,8 @@ import { EmptyState } from "@/components/frisby/empty-state";
 import { AccountForm } from "@/components/frisby/account-form";
 import { ConfirmDialog } from "@/components/frisby/confirm-dialog";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -53,9 +55,14 @@ function ContasPage() {
 
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<Account | null>(null);
+  const [onlyMine, setOnlyMine] = useState(false);
 
   const memberMap = new Map<string, Member>();
   for (const m of membersQ.data ?? []) memberMap.set(m.userId, m);
+
+  const visibleAccounts = onlyMine
+    ? (accountsQ.data ?? []).filter((a) => a.ownerId === user?.id)
+    : (accountsQ.data ?? []);
 
   async function handleArchive(account: Account) {
     try {
@@ -79,6 +86,15 @@ function ContasPage() {
         }
       />
 
+      {!accountsQ.isLoading && !accountsQ.error && (accountsQ.data ?? []).length > 0 && (
+        <div className="mx-4 mb-4 flex items-center gap-2.5 sm:mx-6 lg:mx-0">
+          <Switch id="only-mine" checked={onlyMine} onCheckedChange={setOnlyMine} />
+          <Label htmlFor="only-mine" className="text-sm font-normal text-muted-foreground">
+            Mostrar apenas minhas contas e cartões
+          </Label>
+        </div>
+      )}
+
       {accountsQ.isLoading ? (
         <div className="mx-4 flex items-center justify-center gap-2 rounded-2xl border border-border/60 bg-card p-10 text-sm text-muted-foreground sm:mx-6 lg:mx-0">
           <Loader2 className="h-4 w-4 animate-spin" /> Carregando contas…
@@ -100,10 +116,18 @@ function ContasPage() {
             }
           />
         </div>
+      ) : visibleAccounts.length === 0 ? (
+        <div className="mx-4 sm:mx-6 lg:mx-0">
+          <EmptyState
+            icon={Wallet}
+            title="Nenhuma conta sua por aqui"
+            description="Desligue o filtro para ver também as contas de outros membros."
+          />
+        </div>
       ) : (
         <div className="mx-4 space-y-6 sm:mx-6 lg:mx-0">
           {GROUPS.map((g) => {
-            const items = (accountsQ.data ?? []).filter((a) => a.type === g.type);
+            const items = visibleAccounts.filter((a) => a.type === g.type);
             if (items.length === 0) return null;
             const Icon = g.icon;
             return (

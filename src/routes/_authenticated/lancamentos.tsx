@@ -35,7 +35,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Switch } from "@/components/ui/switch";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -44,6 +46,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useCurrentEntity } from "@/lib/auth/use-current-entity";
+import { useAuth } from "@/lib/auth/context";
 import { PERMISSIONS } from "@/lib/auth/use-permissions";
 import {
   useAccounts,
@@ -98,9 +101,11 @@ function Lancamentos() {
   const search = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
   const { entity } = useCurrentEntity();
+  const { user } = useAuth();
 
   const month = search.month ?? currentMonth();
   const [q, setQ] = useState("");
+  const [onlyMine, setOnlyMine] = useState(false);
 
   const activeFilter: FilterKind =
     search.type === "EXPENSE"
@@ -174,17 +179,26 @@ function Lancamentos() {
   );
   const invoicesByCard = useCardInvoicesForCards(cardIds);
 
+  // "Só minhas": compara o dono da CONTA do lançamento com o usuário logado
+  // — mesma regra usada na tela de Contas. Lançamentos sem accountId (raro)
+  // não têm dono pra comparar, então ficam visíveis independente do filtro.
+  const isMine = (accountId: string | null) =>
+    !accountId || accountMap.get(accountId)?.ownerId === user?.id;
+
   const rows = useMemo(
     () =>
       [...(txQ.data ?? [])]
         .filter((t) => !(t.accountId && cardIds.includes(t.accountId)))
+        .filter((t) => !onlyMine || isMine(t.accountId))
         .sort((a, b) => b.competenceDate.localeCompare(a.competenceDate)),
-    [txQ.data, cardIds],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [txQ.data, cardIds, onlyMine, accountMap, user?.id],
   );
 
   const invoiceRows = useMemo(() => {
     const result: Array<{ invoice: Invoice; cardId: string; count: number }> = [];
     for (const cardId of cardIds) {
+      if (onlyMine && !isMine(cardId)) continue;
       const invoices = invoicesByCard.data.get(cardId) ?? [];
       for (const inv of invoices) {
         if (inv.month !== month) continue;
@@ -196,7 +210,8 @@ function Lancamentos() {
       }
     }
     return result;
-  }, [cardIds, invoicesByCard.data, txQ.data, month]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cardIds, invoicesByCard.data, txQ.data, month, onlyMine, accountMap, user?.id]);
 
   const [invoiceDetailId, setInvoiceDetailId] = useState<string | null>(null);
 
@@ -401,6 +416,12 @@ function Lancamentos() {
             </button>
           ))}
         </div>
+        <div className="flex items-center gap-2.5">
+          <Switch id="only-mine" checked={onlyMine} onCheckedChange={setOnlyMine} />
+          <Label htmlFor="only-mine" className="text-sm font-normal text-muted-foreground">
+            Mostrar apenas meus lançamentos e cartões
+          </Label>
+        </div>
       </div>
 
       {/* Lista */}
@@ -416,14 +437,20 @@ function Lancamentos() {
         ) : rows.length === 0 && invoiceRows.length === 0 ? (
           <div className="p-6">
             <EmptyState
-              title="Nada por aqui ainda"
-              description="Registre a primeira entrada ou despesa do período."
+              title={onlyMine ? "Nenhum lançamento seu neste período" : "Nada por aqui ainda"}
+              description={
+                onlyMine
+                  ? "Desligue o filtro para ver também os lançamentos de outros membros."
+                  : "Registre a primeira entrada ou despesa do período."
+              }
               action={
-                <PermissionGate permission={PERMISSIONS.TRANSACTION_CREATE}>
-                  <Button size="sm" className="gap-1.5" onClick={() => setCreating(true)}>
-                    <Plus className="h-4 w-4" /> Novo lançamento
-                  </Button>
-                </PermissionGate>
+                !onlyMine && (
+                  <PermissionGate permission={PERMISSIONS.TRANSACTION_CREATE}>
+                    <Button size="sm" className="gap-1.5" onClick={() => setCreating(true)}>
+                      <Plus className="h-4 w-4" /> Novo lançamento
+                    </Button>
+                  </PermissionGate>
+                )
               }
               className="border-none bg-transparent"
             />
