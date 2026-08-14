@@ -545,7 +545,7 @@ export function TransactionForm({
                       <Input
                         type="number"
                         min={1}
-                        max={120}
+                        max={360}
                         className="w-20"
                         value={occurrences}
                         onChange={(e) => setOccurrences(Number(e.target.value))}
