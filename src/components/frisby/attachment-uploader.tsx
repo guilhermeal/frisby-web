@@ -3,6 +3,13 @@
 // (imagem/PDF/planilha), lista com nome+tamanho, upload com progresso, remover.
 // O binário nunca passa pelo servidor da API — sobe direto pro storage via
 // URL pré-assinada (ver hooks/api/attachments.ts).
+//
+// Modo "staged": quando o alvo ainda não existe (lançamento sendo criado),
+// o componente sobe o arquivo pro storage na hora (feedback imediato), mas
+// SEM vincular a nada — guarda os metadados em `staged` (controlado pelo
+// formulário pai) e o vínculo real (confirmForTransaction) só acontece
+// depois que o registro é criado. Repassar `staged`/`onStagedChange` ativa
+// esse modo; sem eles, `disabled`/`!target.id` mostra a mensagem de sempre.
 
 import { useRef, useState } from "react";
 import { toast } from "sonner";
@@ -22,9 +29,11 @@ import { ConfirmDialog } from "@/components/frisby/confirm-dialog";
 import {
   useDeleteAttachment,
   useInvoicePaymentAttachments,
+  useStagedUpload,
   useTransactionAttachments,
   useUploadInvoicePaymentAttachment,
   useUploadTransactionAttachment,
+  type StagedAttachment,
 } from "@/hooks/api";
 import { apiErrorMessage } from "@/lib/api/error-messages";
 import type { Attachment } from "@/lib/api/types";
@@ -53,32 +62,50 @@ interface AttachmentUploaderProps {
   target:
     | { kind: "transaction"; id: string | undefined }
     | { kind: "invoicePayment"; id: string | undefined };
-  /** Quando o alvo ainda não existe (ex.: lançamento sendo criado), oculta a área. */
+  /** Quando o alvo ainda não existe e staged/onStagedChange não são passados,
+   * oculta a área com uma mensagem. */
   disabled?: boolean;
   compact?: boolean;
+  /** Ativa o modo staged: arquivos já enviados ao storage mas sem vínculo
+   * ainda, controlados pelo formulário pai (só suportado para "transaction"). */
+  staged?: StagedAttachment[];
+  onStagedChange?: (next: StagedAttachment[]) => void;
 }
 
-export function AttachmentUploader({ target, disabled, compact }: AttachmentUploaderProps) {
+export function AttachmentUploader({
+  target,
+  disabled,
+  compact,
+  staged,
+  onStagedChange,
+}: AttachmentUploaderProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
   const [progress, setProgress] = useState<number | null>(null);
 
   const isTransaction = target.kind === "transaction";
-  const txAttachmentsQ = useTransactionAttachments(isTransaction ? target.id : undefined);
+  const isStagedMode = isTransaction && !target.id && !!onStagedChange;
+
+  const txAttachmentsQ = useTransactionAttachments(
+    isTransaction && !isStagedMode ? target.id : undefined,
+  );
   const paymentAttachmentsQ = useInvoicePaymentAttachments(!isTransaction ? target.id : undefined);
   const attachmentsQ = isTransaction ? txAttachmentsQ : paymentAttachmentsQ;
 
   const uploadTx = useUploadTransactionAttachment(isTransaction ? target.id : undefined);
   const uploadPayment = useUploadInvoicePaymentAttachment(!isTransaction ? target.id : undefined);
-  const uploadMutation = isTransaction ? uploadTx : uploadPayment;
+  const stagedUpload = useStagedUpload();
+  const uploadMutation = isStagedMode ? stagedUpload : isTransaction ? uploadTx : uploadPayment;
 
   const deleteMutation = useDeleteAttachment(target);
 
-  const attachments = attachmentsQ.data ?? [];
+  const savedAttachments = attachmentsQ.data ?? [];
+  const stagedList = staged ?? [];
   const uploading = uploadMutation.isPending;
 
   async function handleFiles(files: FileList | null) {
-    if (!files || files.length === 0 || !target.id) return;
+    if (!files || files.length === 0) return;
+    if (!isStagedMode && !target.id) return;
     const file = files[0];
     if (!file) return;
 
@@ -89,8 +116,14 @@ export function AttachmentUploader({ target, disabled, compact }: AttachmentUplo
 
     setProgress(0);
     try {
-      await uploadMutation.mutateAsync({ file, onProgress: setProgress });
-      toast.success("Anexo enviado");
+      if (isStagedMode) {
+        const result = await stagedUpload.mutateAsync({ file, onProgress: setProgress });
+        onStagedChange!([...stagedList, result]);
+        toast.success("Anexo pronto — será vinculado ao salvar");
+      } else {
+        await uploadMutation.mutateAsync({ file, onProgress: setProgress });
+        toast.success("Anexo enviado");
+      }
     } catch (err) {
       toast.error(apiErrorMessage(err));
     } finally {
@@ -109,7 +142,11 @@ export function AttachmentUploader({ target, disabled, compact }: AttachmentUplo
     }
   }
 
-  if (disabled || !target.id) {
+  function handleRemoveStaged(storageKey: string) {
+    onStagedChange!(stagedList.filter((s) => s.storageKey !== storageKey));
+  }
+
+  if (!isStagedMode && (disabled || !target.id)) {
     return (
       <p className="rounded-lg border border-dashed border-border/70 px-3 py-2 text-xs text-muted-foreground">
         Salve o lançamento para poder anexar arquivos.
@@ -182,9 +219,45 @@ export function AttachmentUploader({ target, disabled, compact }: AttachmentUplo
         </div>
       )}
 
-      {attachments.length > 0 && (
+      {isStagedMode && stagedList.length > 0 && (
         <ul className="space-y-1.5">
-          {attachments.map((a) => {
+          {stagedList.map((s) => {
+            const Icon = iconFor(s.mimeType);
+            return (
+              <li
+                key={s.storageKey}
+                className="flex items-center gap-2.5 rounded-lg border border-border/60 bg-card px-3 py-2"
+              >
+                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-secondary text-muted-foreground">
+                  <Icon className="h-4 w-4" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-xs font-medium" title={s.fileName}>
+                    {s.fileName}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground">
+                    {formatBytes(s.sizeBytes)} · será anexado ao salvar
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 shrink-0"
+                  aria-label={`Remover ${s.fileName}`}
+                  onClick={() => handleRemoveStaged(s.storageKey)}
+                >
+                  <X className="h-3.5 w-3.5" />
+                </Button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
+      {!isStagedMode && savedAttachments.length > 0 && (
+        <ul className="space-y-1.5">
+          {savedAttachments.map((a) => {
             const Icon = iconFor(a.mimeType);
             return (
               <li

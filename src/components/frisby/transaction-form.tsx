@@ -30,11 +30,13 @@ import { CategorySelect } from "@/components/frisby/category-select";
 import { SplitBuilder, sharesSumOk, type Share } from "@/components/frisby/split-builder";
 import { AttachmentUploader } from "@/components/frisby/attachment-uploader";
 import {
+  useConfirmStagedTransactionAttachment,
   useCreateInstallments,
   useCreateRecurrence,
   useCreateTransaction,
   useMembers,
   useUpdateTransaction,
+  type StagedAttachment,
 } from "@/hooks/api";
 import { apiErrorMessage, apiFieldErrors } from "@/lib/api/error-messages";
 import { formatMoney } from "@/lib/money";
@@ -118,6 +120,7 @@ export function TransactionForm({
   const updateTx = useUpdateTransaction(entityId);
   const createRecurrence = useCreateRecurrence(entityId);
   const createInstallments = useCreateInstallments(entityId);
+  const confirmStagedAttachment = useConfirmStagedTransactionAttachment();
 
   // ---------- estado ----------
   const [type, setType] = useState<TxType>(defaultType);
@@ -140,12 +143,16 @@ export function TransactionForm({
   const [installmentTotal, setInstallmentTotal] = useState(2);
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  // Anexos escolhidos antes de o lançamento existir — já enviados ao storage
+  // (useStagedUpload), vinculados de fato só depois da criação bem-sucedida.
+  const [stagedAttachments, setStagedAttachments] = useState<StagedAttachment[]>([]);
 
   // Reset/prefill ao abrir.
   useEffect(() => {
     if (!open) return;
     setError(null);
     setFieldErrors({});
+    setStagedAttachments([]);
     if (transaction) {
       setType(transaction.type);
       setAmount(transaction.amount);
@@ -226,6 +233,20 @@ export function TransactionForm({
   ]);
 
   // ---------- submissão ----------
+  // Vincula os anexos já enviados ao storage (stagedAttachments) à transação
+  // recém-criada. Roda depois do toast de sucesso do lançamento em si — um
+  // anexo que falhe ao vincular não deve fazer parecer que o lançamento
+  // inteiro falhou (ele já foi criado com sucesso).
+  async function attachStagedTo(transactionId: string) {
+    for (const staged of stagedAttachments) {
+      try {
+        await confirmStagedAttachment.mutateAsync({ transactionId, staged });
+      } catch (err) {
+        toast.error(`Falha ao anexar "${staged.fileName}": ${apiErrorMessage(err)}`);
+      }
+    }
+  }
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (validationError) {
@@ -252,7 +273,7 @@ export function TransactionForm({
         });
         toast.success("Lançamento atualizado");
       } else if (mode === "installments") {
-        await createInstallments.mutateAsync({
+        const result = await createInstallments.mutateAsync({
           type,
           totalAmount: amount,
           installmentTotal,
@@ -266,6 +287,12 @@ export function TransactionForm({
           shares: scope === "MEMBERS" ? shares : undefined,
         });
         toast.success(`Compra parcelada em ${installmentTotal}x criada`);
+        // Anexo vai na primeira parcela — é a compra em si, a mais natural
+        // para carregar o comprovante.
+        const firstInstallment = result.transactions[0];
+        if (firstInstallment && stagedAttachments.length > 0) {
+          await attachStagedTo(firstInstallment.id);
+        }
       } else if (mode === "repeat") {
         await createRecurrence.mutateAsync({
           type,
@@ -283,8 +310,11 @@ export function TransactionForm({
           occurrences: forever ? null : occurrences,
         });
         toast.success("Recorrência criada");
+        // Recorrência gera N ocorrências futuras — não há uma única
+        // transação óbvia para receber o anexo, então ele não é oferecido
+        // nesse modo (ver condição de renderização do AttachmentUploader).
       } else {
-        await createTx.mutateAsync({
+        const created = await createTx.mutateAsync({
           type,
           amount,
           accountId: accountId ?? null,
@@ -299,6 +329,7 @@ export function TransactionForm({
           notes: notes || undefined,
         });
         toast.success(status === "SETTLED" ? "Lançamento baixado" : "Lançamento previsto criado");
+        if (stagedAttachments.length > 0) await attachStagedTo(created.id);
       }
       onOpenChange(false);
     } catch (err) {
@@ -614,13 +645,26 @@ export function TransactionForm({
           />
         </div>
 
-        {/* Anexos — comprovante/boleto/nota fiscal. Só disponível em edição
-            (lançamento precisa existir para vincular o anexo). */}
-        {isEdit && transaction && (
+        {/* Anexos — comprovante/boleto/nota fiscal. Em edição, vincula na
+            hora; ao criar (exceto Repetir, que gera N ocorrências futuras
+            sem uma transação única óbvia), sobe pro storage e vincula à
+            transação assim que ela é criada (ver stagedAttachments). */}
+        {isEdit && transaction ? (
           <div className="space-y-1.5">
             <Label>Anexos</Label>
             <AttachmentUploader target={{ kind: "transaction", id: transaction.id }} />
           </div>
+        ) : (
+          mode !== "repeat" && (
+            <div className="space-y-1.5">
+              <Label>Anexos</Label>
+              <AttachmentUploader
+                target={{ kind: "transaction", id: undefined }}
+                staged={stagedAttachments}
+                onStagedChange={setStagedAttachments}
+              />
+            </div>
+          )
         )}
 
         {error && (
