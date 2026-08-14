@@ -195,18 +195,20 @@ function Lancamentos() {
     [txQ.data, cardIds, onlyMine, accountMap, user?.id],
   );
 
-  // A fatura aparece no mês em que ela VENCE (dueDate), não no mês do ciclo
-  // de fechamento (referenceMonth/inv.month) — o que importa pro usuário
-  // aqui é "quando vou precisar pagar", não o período de compras em si (esse
-  // detalhe already vive dentro do InvoiceDetailDialog). Evita a fatura
-  // "sumir" do mês corrente quando o fechamento cai perto da virada do mês.
+  // A fatura aparece no mês do CICLO de compras (referenceMonth/inv.month,
+  // onde as compras do período foram lançadas) E também no mês em que ela
+  // VENCE (dueDate) — os dois meses só coincidem quando o fechamento cai no
+  // fim do mês; quando o fechamento é mais cedo, vencimento cai no mês
+  // seguinte ao ciclo. Mostrar nos dois evita a fatura sumir tanto de quem
+  // está olhando "onde gastei isso" (mês do ciclo) quanto de quem quer saber
+  // "quando preciso pagar" (mês do vencimento).
   const invoiceRows = useMemo(() => {
     const result: Array<{ invoice: Invoice; cardId: string; count: number }> = [];
     for (const cardId of cardIds) {
       if (onlyMine && !isMine(cardId)) continue;
       const invoices = invoicesByCard.data.get(cardId) ?? [];
       for (const inv of invoices) {
-        if (inv.dueDate.slice(0, 7) !== month) continue;
+        if (inv.month !== month && inv.dueDate.slice(0, 7) !== month) continue;
         const count = (txQ.data ?? []).filter(
           (t) => t.accountId === cardId && t.cardInvoiceId === inv.id,
         ).length;
