@@ -48,20 +48,17 @@ import { PERMISSIONS } from "@/lib/auth/use-permissions";
 import { apiErrorMessage } from "@/lib/api/error-messages";
 import { formatDate } from "@/lib/format";
 import { addCents } from "@/lib/money";
-import type { GoalCategory } from "@/lib/api/types";
+import type { GoalHorizon } from "@/lib/api/types";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/sonhos-metas_/$goalId")({
   component: GoalDetailPage,
 });
 
-const CATEGORY_LABEL: Record<GoalCategory, string> = {
-  RESERVE: "Reserva",
-  TRIP: "Viagem",
-  VEHICLE: "Veículo",
-  PROPERTY: "Imóvel",
-  EDUCATION: "Educação",
-  OTHER: "Outro",
+const HORIZON_LABEL: Record<GoalHorizon, string> = {
+  SHORT: "Curto prazo",
+  MEDIUM: "Médio prazo",
+  LONG: "Longo prazo",
 };
 
 const tooltipStyle = {
@@ -130,7 +127,7 @@ function GoalDetailPage() {
     <AppShell>
       <PageHeader
         title={goal?.name ?? "Meta"}
-        subtitle={goal ? CATEGORY_LABEL[goal.category] : undefined}
+        subtitle={goal ? HORIZON_LABEL[goal.horizon] : undefined}
         actions={
           <div className="flex items-center gap-2">
             <Button asChild variant="ghost" size="icon" className="h-8 w-8">
@@ -242,7 +239,7 @@ function GoalDetailPage() {
                 <div>
                   <p className="text-xs text-muted-foreground">Atual</p>
                   <p className="tnum font-medium">
-                    <MoneyText cents={goal.currentAmount} currency={goal.currency} />
+                    <MoneyText cents={goal.currentBalance} currency={goal.currency} />
                   </p>
                 </div>
                 <div>
@@ -254,7 +251,7 @@ function GoalDetailPage() {
                 <div>
                   <p className="text-xs text-muted-foreground">Aporte/mês</p>
                   <p className="tnum font-medium">
-                    <MoneyText cents={goal.requiredMonthlyContribution} currency={goal.currency} />
+                    <MoneyText cents={goal.requiredMonthly} currency={goal.currency} />
                   </p>
                 </div>
                 <div>
@@ -262,15 +259,6 @@ function GoalDetailPage() {
                   <p className="font-medium">{formatDate(goal.targetDate)}</p>
                 </div>
               </div>
-
-              {goal.viability === "unfeasible" && goal.status === "ACTIVE" && (
-                <div className="mt-4 flex items-center justify-between gap-3 rounded-lg bg-expense/5 px-3 py-2 text-xs text-expense">
-                  <span>Aumente o prazo ou reduza o valor para viabilizar esta meta.</span>
-                  <Button size="sm" variant="outline" onClick={() => setEditing(true)}>
-                    Editar
-                  </Button>
-                </div>
-              )}
 
               {goal.status === "ACTIVE" && (
                 <PermissionGate permission={PERMISSIONS.TRANSACTION_CREATE}>

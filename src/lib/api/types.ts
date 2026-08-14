@@ -511,60 +511,69 @@ export interface JourneySnapshot {
   computedAt: string;
 }
 
-// ---- sonhos & metas (Sprint 6.1) ----
+// ---- sonhos & metas (Sprint 6.0/6.1) ----
+// Contrato real do backend (frisby-server/src/modules/goals). Cada meta tem
+// uma Account INVESTMENT dedicada por trás (accountId); aportar é um Transfer
+// kind=CONTRIBUTION comum para essa conta — não existe rota própria de aporte.
 
-/** Categoria descritiva da meta — só rotulagem/ícone, não afeta o cálculo. */
-export type GoalCategory = "RESERVE" | "TRIP" | "VEHICLE" | "PROPERTY" | "EDUCATION" | "OTHER";
-
+export type GoalHorizon = "SHORT" | "MEDIUM" | "LONG";
 export type GoalStatus = "ACTIVE" | "PAUSED" | "ACHIEVED" | "ABANDONED";
 
-/** Viabilidade individual — se o aporte necessário cabe na sobra mensal atual. */
-export type GoalViabilityLevel = "ok" | "tight" | "unfeasible";
+/** Viabilidade — individual (por meta, calculada no front) ou agregada
+ * (GET /goals/feasibility). "unknown" = sem histórico suficiente para
+ * calcular uma sobra mensal real (não é o mesmo que "inviável"). */
+export type GoalViabilityLevel = "ok" | "tight" | "unrealistic" | "unknown";
 
 export interface Goal {
   id: string;
   name: string;
-  category: GoalCategory;
+  description?: string | null;
   /** Conta de investimento dedicada por trás da meta — transparente ao usuário. */
   accountId: string;
   targetAmount: string;
   currency: string;
   targetDate: string; // YYYY-MM-DD
+  horizon: GoalHorizon;
   status: GoalStatus;
+  icon?: string | null;
+  color?: string | null;
   /** Saldo atual da conta dedicada — é o "andamento" da meta. */
-  currentAmount: string;
+  currentBalance: string;
   /** % concluído (0-100), calculado pelo backend. */
   progressPct: number;
-  /** Aporte mensal necessário para chegar ao valor-alvo até a data-alvo. */
-  requiredMonthlyContribution: string;
-  /** Projeção de conclusão no ritmo atual de aportes (pode ser null sem histórico). */
-  projectedCompletionDate: string | null;
-  viability: GoalViabilityLevel;
+  monthsRemaining: number;
+  /** Aporte mensal necessário para chegar ao valor-alvo até a data-alvo; "0" se já atingiu. */
+  requiredMonthly: string;
   createdAt: string;
 }
 
-/** Prévia de cálculo (criar/editar) — mesma fórmula do backend, sem persistir nada. */
-export interface GoalPreview {
-  requiredMonthlyContribution: string;
-  projectedCompletionDate: string | null;
-  viability: GoalViabilityLevel;
-}
-
-export interface GoalViabilityRanking {
+export interface GoalFeasibilityItem {
   goalId: string;
-  goalName: string;
-  requiredMonthlyContribution: string;
+  name: string;
+  targetAmount: string;
+  currentBalance: string;
+  monthsRemaining: number;
+  requiredMonthly: string;
 }
 
-/** Viabilidade agregada: soma do aporte necessário de todas as metas ATIVAS
- * vs. a sobra mensal real da entidade. */
-export interface GoalsViability {
-  currency: string;
-  monthlySurplus: string;
-  totalRequiredContribution: string;
+/** Viabilidade agregada (GET /entities/:id/goals/feasibility): soma do aporte
+ * necessário de todas as metas ATIVAS vs. a sobra mensal média real (últimos
+ * 3 meses) da entidade. */
+export interface GoalsFeasibility {
+  baseCurrency: string;
+  /** Sobra mensal média — "0" tanto quando sobra real é zero quanto quando
+   * insufficientHistory é true (nesse caso o valor não é significativo). */
+  availableSurplus: string;
+  totalRequiredMonthly: string;
+  /** null quando indeterminado: sem histórico, ou sobra <= 0 com metas ativas. */
+  ratio: number | null;
   level: GoalViabilityLevel;
+  /** true = nenhum mês com lançamento SETTLED nos últimos 3 meses — o painel
+   * deve mostrar um estado informativo em vez dos números (que não refletem
+   * comportamento real ainda). */
+  insufficientHistory: boolean;
   /** Metas que mais pesam no orçamento, maior aporte necessário primeiro. */
-  ranking: GoalViabilityRanking[];
+  goals: GoalFeasibilityItem[];
 }
 
 // ---- filtros ----

@@ -27,34 +27,24 @@ import { useGoals } from "@/hooks/api";
 import { useCurrentEntity } from "@/lib/auth/use-current-entity";
 import { PERMISSIONS } from "@/lib/auth/use-permissions";
 import { apiErrorMessage } from "@/lib/api/error-messages";
-import { addMonths, todayISO } from "@/lib/format";
-import type { Goal } from "@/lib/api/types";
+import type { Goal, GoalHorizon } from "@/lib/api/types";
 
 export const Route = createFileRoute("/_authenticated/sonhos-metas")({
   component: SonhosMetasPage,
 });
 
-type Horizon = "all" | "short" | "medium" | "long";
+type HorizonFilter = "all" | GoalHorizon;
 
-const HORIZON_LABEL: Record<Horizon, string> = {
+const HORIZON_LABEL: Record<HorizonFilter, string> = {
   all: "Todos os prazos",
-  short: "Curto prazo (até 1 ano)",
-  medium: "Médio prazo (1 a 5 anos)",
-  long: "Longo prazo (5+ anos)",
+  SHORT: "Curto prazo (até 1 ano)",
+  MEDIUM: "Médio prazo (1 a 3 anos)",
+  LONG: "Longo prazo (3+ anos)",
 };
-
-function horizonOf(targetDate: string): Exclude<Horizon, "all"> {
-  const oneYear = addMonths(todayISO().slice(0, 7), 12);
-  const fiveYears = addMonths(todayISO().slice(0, 7), 60);
-  const ym = targetDate.slice(0, 7);
-  if (ym <= oneYear) return "short";
-  if (ym <= fiveYears) return "medium";
-  return "long";
-}
 
 function SonhosMetasPage() {
   const { entity } = useCurrentEntity();
-  const [horizon, setHorizon] = useState<Horizon>("all");
+  const [horizon, setHorizon] = useState<HorizonFilter>("all");
   const [creating, setCreating] = useState(false);
   const [contributingTo, setContributingTo] = useState<Goal | null>(null);
 
@@ -62,18 +52,18 @@ function SonhosMetasPage() {
   const goals = goalsQ.data ?? [];
 
   const filtered = useMemo(
-    () => (horizon === "all" ? goals : goals.filter((g) => horizonOf(g.targetDate) === horizon)),
+    () => (horizon === "all" ? goals : goals.filter((g) => g.horizon === horizon)),
     [goals, horizon],
   );
 
-  // Ordem visual: ativas primeiro (mais inviáveis no topo, chamam atenção),
-  // depois pausadas, depois alcançadas por último (já não pedem ação).
+  // Ordem visual: ativas primeiro, depois pausadas, alcançadas por último
+  // (já não pedem ação); dentro de ACTIVE, quem precisa de mais aporte
+  // mensal primeiro (chama mais atenção).
   const sorted = useMemo(() => {
     const rank = { ACTIVE: 0, PAUSED: 1, ACHIEVED: 2, ABANDONED: 3 } as const;
-    const viabilityRank = { unfeasible: 0, tight: 1, ok: 2 } as const;
     return [...filtered].sort((a, b) => {
       if (rank[a.status] !== rank[b.status]) return rank[a.status] - rank[b.status];
-      return viabilityRank[a.viability] - viabilityRank[b.viability];
+      return BigInt(b.requiredMonthly) > BigInt(a.requiredMonthly) ? 1 : -1;
     });
   }, [filtered]);
 
@@ -95,12 +85,12 @@ function SonhosMetasPage() {
         {goals.length > 0 && <GoalViabilityPanel entityId={entity?.id} />}
 
         {goals.length > 0 && (
-          <Select value={horizon} onValueChange={(v) => setHorizon(v as Horizon)}>
+          <Select value={horizon} onValueChange={(v) => setHorizon(v as HorizonFilter)}>
             <SelectTrigger className="w-full sm:w-64">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {(Object.keys(HORIZON_LABEL) as Horizon[]).map((h) => (
+              {(Object.keys(HORIZON_LABEL) as HorizonFilter[]).map((h) => (
                 <SelectItem key={h} value={h}>
                   {HORIZON_LABEL[h]}
                 </SelectItem>

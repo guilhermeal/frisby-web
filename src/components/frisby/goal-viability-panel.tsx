@@ -1,28 +1,34 @@
-// Painel de viabilidade agregada: sobra mensal real da entidade vs. soma do
-// aporte necessário de todas as metas ATIVAS (pausadas não entram). Quando
-// não fecha, mostra o ranking das metas que mais pesam no orçamento.
+// Painel de viabilidade agregada (GET /entities/:id/goals/feasibility):
+// sobra mensal real da entidade vs. soma do aporte necessário de todas as
+// metas ATIVAS (pausadas não entram). Quando não fecha, mostra o ranking das
+// metas que mais pesam no orçamento. Sem histórico suficiente (nenhum mês
+// com lançamento SETTLED nos últimos 3 meses), o backend não consegue medir
+// uma sobra real — mostramos um estado informativo em vez de números que
+// pareceriam reais mas não são (ver insufficientHistory).
 
-import { Loader2 } from "lucide-react";
+import { Info, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { MoneyText } from "@/components/frisby/money-text";
 import { apiErrorMessage } from "@/lib/api/error-messages";
-import { useGoalsViability } from "@/hooks/api";
+import { useGoalsFeasibility } from "@/hooks/api";
 import { cn } from "@/lib/utils";
 
 const LEVEL_LABEL = {
   ok: "Tudo cabe no orçamento",
   tight: "Está apertado",
-  unfeasible: "Não cabe no orçamento",
+  unrealistic: "Não cabe no orçamento",
+  unknown: "Ainda não sabemos",
 } as const;
 
 const LEVEL_CLASS = {
   ok: "bg-income/10 text-income",
   tight: "bg-warning/10 text-warning",
-  unfeasible: "bg-expense/10 text-expense",
+  unrealistic: "bg-expense/10 text-expense",
+  unknown: "bg-secondary text-muted-foreground",
 } as const;
 
 export function GoalViabilityPanel({ entityId }: { entityId: string | undefined }) {
-  const q = useGoalsViability(entityId);
+  const q = useGoalsFeasibility(entityId);
 
   if (q.isLoading) {
     return (
@@ -43,11 +49,26 @@ export function GoalViabilityPanel({ entityId }: { entityId: string | undefined 
   const data = q.data;
   if (!data) return null;
 
+  if (data.insufficientHistory) {
+    return (
+      <div className="flex items-start gap-3 rounded-2xl border border-border/60 bg-card p-5">
+        <Info className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+        <div>
+          <p className="text-sm font-medium">Ainda não temos histórico suficiente</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Complete seu primeiro mês de lançamentos baixados para vermos se o aporte das suas metas
+            cabe na sua sobra mensal.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
       className={cn(
         "rounded-2xl border bg-card p-5",
-        data.level === "unfeasible"
+        data.level === "unrealistic"
           ? "border-expense/30"
           : data.level === "tight"
             ? "border-warning/30"
@@ -66,31 +87,31 @@ export function GoalViabilityPanel({ entityId }: { entityId: string | undefined 
         <div>
           <p className="text-xs text-muted-foreground">Sobra mensal disponível</p>
           <p className="tnum font-semibold">
-            <MoneyText cents={data.monthlySurplus} currency={data.currency} />
+            <MoneyText cents={data.availableSurplus} currency={data.baseCurrency} />
           </p>
         </div>
         <div>
           <p className="text-xs text-muted-foreground">Aporte total necessário</p>
           <p className="tnum font-semibold">
-            <MoneyText cents={data.totalRequiredContribution} currency={data.currency} />
+            <MoneyText cents={data.totalRequiredMonthly} currency={data.baseCurrency} />
           </p>
         </div>
       </div>
 
-      {data.level !== "ok" && data.ranking.length > 0 && (
+      {data.level !== "ok" && data.goals.length > 0 && (
         <div className="mt-4 border-t border-border/60 pt-4">
           <p className="mb-2 text-xs font-medium text-muted-foreground">
             Metas que mais pesam no orçamento
           </p>
           <ul className="space-y-1.5">
-            {data.ranking.map((r, i) => (
-              <li key={r.goalId} className="flex items-center justify-between text-sm">
+            {data.goals.map((g, i) => (
+              <li key={g.goalId} className="flex items-center justify-between text-sm">
                 <span className="flex items-center gap-2 truncate">
                   <span className="text-xs text-muted-foreground">{i + 1}.</span>
-                  {r.goalName}
+                  {g.name}
                 </span>
                 <span className="tnum shrink-0 text-xs font-medium">
-                  <MoneyText cents={r.requiredMonthlyContribution} currency={data.currency} />
+                  <MoneyText cents={g.requiredMonthly} currency={data.baseCurrency} />
                   /mês
                 </span>
               </li>

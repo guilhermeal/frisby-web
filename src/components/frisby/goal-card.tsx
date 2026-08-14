@@ -1,6 +1,7 @@
-// Card de uma meta: progresso, aporte necessário, projeção e badge de
-// viabilidade individual. Estados especiais (atingida/pausada/inviável) só
-// mudam aparência — nunca escondem a meta da lista.
+// Card de uma meta: progresso, aporte necessário e prazo restante. Estados
+// especiais (atingida/pausada) só mudam aparência — nunca escondem a meta da
+// lista. Viabilidade é sempre AGREGADA (GET /goals/feasibility) — o backend
+// não calcula um nível de viabilidade por meta individual.
 
 import { Link } from "@tanstack/react-router";
 import { PartyPopper, PiggyBank } from "lucide-react";
@@ -10,28 +11,13 @@ import { MoneyText } from "@/components/frisby/money-text";
 import { PermissionGate } from "@/components/frisby/permission-gate";
 import { PERMISSIONS } from "@/lib/auth/use-permissions";
 import { formatDate } from "@/lib/format";
-import type { Goal, GoalCategory } from "@/lib/api/types";
+import type { Goal } from "@/lib/api/types";
 import { cn } from "@/lib/utils";
 
-const CATEGORY_LABEL: Record<GoalCategory, string> = {
-  RESERVE: "Reserva",
-  TRIP: "Viagem",
-  VEHICLE: "Veículo",
-  PROPERTY: "Imóvel",
-  EDUCATION: "Educação",
-  OTHER: "Outro",
-};
-
-const VIABILITY_LABEL = {
-  ok: "Viável",
-  tight: "Apertado",
-  unfeasible: "Inviável",
-} as const;
-
-const VIABILITY_CLASS = {
-  ok: "bg-income/10 text-income",
-  tight: "bg-warning/10 text-warning",
-  unfeasible: "bg-expense/10 text-expense",
+const HORIZON_LABEL = {
+  SHORT: "Curto prazo",
+  MEDIUM: "Médio prazo",
+  LONG: "Longo prazo",
 } as const;
 
 interface GoalCardProps {
@@ -61,7 +47,7 @@ export function GoalCard({ goal, onContribute }: GoalCardProps) {
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0 flex-1">
             <p className="truncate font-medium">{goal.name}</p>
-            <p className="text-xs text-muted-foreground">{CATEGORY_LABEL[goal.category]}</p>
+            <p className="text-xs text-muted-foreground">{HORIZON_LABEL[goal.horizon]}</p>
           </div>
           {isAchieved ? (
             <Badge className="shrink-0 gap-1 bg-income/10 text-income hover:bg-income/10">
@@ -71,11 +57,7 @@ export function GoalCard({ goal, onContribute }: GoalCardProps) {
             <Badge variant="secondary" className="shrink-0">
               Pausada
             </Badge>
-          ) : (
-            <Badge className={cn("shrink-0", VIABILITY_CLASS[goal.viability])}>
-              {VIABILITY_LABEL[goal.viability]}
-            </Badge>
-          )}
+          ) : null}
         </div>
 
         <div className="space-y-1.5">
@@ -90,7 +72,7 @@ export function GoalCard({ goal, onContribute }: GoalCardProps) {
           </div>
           <div className="flex items-center justify-between text-xs text-muted-foreground">
             <span>
-              <MoneyText cents={goal.currentAmount} currency={goal.currency} /> de{" "}
+              <MoneyText cents={goal.currentBalance} currency={goal.currency} /> de{" "}
               <MoneyText cents={goal.targetAmount} currency={goal.currency} />
             </span>
             <span className="tnum font-medium text-foreground">{progress.toFixed(0)}%</span>
@@ -102,25 +84,15 @@ export function GoalCard({ goal, onContribute }: GoalCardProps) {
             <div>
               <p className="text-muted-foreground">Aporte necessário</p>
               <p className="tnum font-medium">
-                <MoneyText cents={goal.requiredMonthlyContribution} currency={goal.currency} />
+                <MoneyText cents={goal.requiredMonthly} currency={goal.currency} />
                 /mês
               </p>
             </div>
             <div>
-              <p className="text-muted-foreground">Conclusão prevista</p>
-              <p className="font-medium">
-                {goal.projectedCompletionDate
-                  ? formatDate(goal.projectedCompletionDate)
-                  : "Sem histórico ainda"}
-              </p>
+              <p className="text-muted-foreground">Prazo</p>
+              <p className="font-medium">{formatDate(goal.targetDate)}</p>
             </div>
           </div>
-        )}
-
-        {goal.viability === "unfeasible" && !isAchieved && !isPaused && (
-          <p className="rounded-lg bg-expense/5 px-3 py-2 text-xs text-expense">
-            Aumente o prazo ou reduza o valor para viabilizar esta meta.
-          </p>
         )}
       </Link>
 

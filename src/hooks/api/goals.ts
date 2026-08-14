@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import {
   goalsApi,
-  goalsViabilityApi,
+  goalsFeasibilityApi,
   type CreateGoalBody,
   type UpdateGoalBody,
 } from "@/lib/api/endpoints";
@@ -11,7 +11,7 @@ import { qk } from "./keys";
 function invalidateGoals(qc: QueryClient, entityId: string | undefined) {
   if (!entityId) return;
   qc.invalidateQueries({ queryKey: qk.goals(entityId) });
-  qc.invalidateQueries({ queryKey: qk.goalsViability(entityId) });
+  qc.invalidateQueries({ queryKey: qk.goalsFeasibility(entityId) });
 }
 
 export function useGoals(entityId: string | undefined) {
@@ -30,10 +30,10 @@ export function useGoal(entityId: string | undefined, goalId: string | undefined
   });
 }
 
-export function useGoalsViability(entityId: string | undefined) {
+export function useGoalsFeasibility(entityId: string | undefined) {
   return useQuery({
-    queryKey: qk.goalsViability(entityId ?? ""),
-    queryFn: () => goalsViabilityApi.get(entityId!),
+    queryKey: qk.goalsFeasibility(entityId ?? ""),
+    queryFn: () => goalsFeasibilityApi.get(entityId!),
     enabled: !!entityId,
   });
 }
@@ -69,17 +69,5 @@ export function useDeleteGoal(entityId: string | undefined) {
   return useMutation({
     mutationFn: (goalId: string) => goalsApi.remove(entityId!, goalId),
     onSuccess: () => invalidateGoals(qc, entityId),
-  });
-}
-
-/**
- * Prévia ao vivo do aporte necessário — debounced pelo chamador. Não usa
- * useQuery porque é essencialmente uma ação sob demanda dos campos do
- * formulário, não um dado cacheável por chave estável.
- */
-export function useGoalPreview(entityId: string | undefined) {
-  return useMutation({
-    mutationFn: (body: { targetAmount: string; targetDate: string }) =>
-      goalsApi.preview(entityId!, body),
   });
 }

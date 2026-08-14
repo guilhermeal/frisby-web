@@ -1,7 +1,9 @@
-// Criar/editar meta. Prévia ao vivo do aporte mensal necessário: replica a
-// fórmula simples (valor restante / meses restantes) no cliente para feedback
-// instantâneo enquanto o usuário digita, e confirma com o backend (debounced)
-// antes de salvar — o backend é sempre a fonte de verdade do valor final.
+// Criar/editar meta. Prévia ao vivo do aporte mensal necessário: replica no
+// cliente a MESMA fórmula do motor do backend — (valor restante) / (meses
+// restantes, arredondado pra cima) — para feedback instantâneo enquanto o
+// usuário digita. Não existe endpoint de preview: o backend recalcula esse
+// mesmo valor (requiredMonthly) ao salvar e o devolve na resposta, que é o
+// que passa a valer dali em diante.
 
 import { useEffect, useMemo, useState } from "react";
 import { Loader2 } from "lucide-react";
@@ -9,39 +11,30 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { ResponsiveDialog } from "@/components/frisby/responsive-dialog";
 import { MoneyInput } from "@/components/frisby/money-input";
 import { DatePicker } from "@/components/frisby/date-picker";
 import { MoneyText } from "@/components/frisby/money-text";
-import { useCreateGoal, useGoalPreview, useUpdateGoal } from "@/hooks/api";
+import { useCreateGoal, useUpdateGoal } from "@/hooks/api";
 import { apiErrorMessage } from "@/lib/api/error-messages";
 import { addMonths, todayISO } from "@/lib/format";
-import type { Goal, GoalCategory } from "@/lib/api/types";
+import type { Goal } from "@/lib/api/types";
 import { cn } from "@/lib/utils";
 
-const CATEGORY_OPTIONS: Array<{ value: GoalCategory; label: string }> = [
-  { value: "RESERVE", label: "Reserva de emergência" },
-  { value: "TRIP", label: "Viagem" },
-  { value: "VEHICLE", label: "Veículo" },
-  { value: "PROPERTY", label: "Imóvel" },
-  { value: "EDUCATION", label: "Educação" },
-  { value: "OTHER", label: "Outro" },
-];
+/** Meses restantes até a data-alvo, sempre >= 1 — mesma regra de
+ * monthsRemaining() no backend (goal-helpers.ts): evita divisão por
+ * zero/negativa quando a meta vence no mês corrente ou já venceu. */
+function monthsRemaining(targetDate: string): number {
+  const days = (new Date(targetDate).getTime() - new Date(todayISO()).getTime()) / 86_400_000;
+  return Math.max(1, Math.ceil(days / 30));
+}
 
-/** Meses inteiros entre hoje e a data-alvo (mínimo 1, para não dividir por zero). */
-function monthsUntil(targetDate: string): number {
-  const today = new Date(todayISO());
-  const target = new Date(targetDate);
-  const months =
-    (target.getFullYear() - today.getFullYear()) * 12 + (target.getMonth() - today.getMonth());
-  return Math.max(1, months);
+/** (targetAmount - currentBalance) / monthsRemaining, arredondado pra cima —
+ * mesma fórmula de computeRequiredMonthly() no backend (goal-engine.ts). */
+function requiredMonthly(targetAmount: string, currentBalance: string, months: number): string {
+  const remaining = BigInt(targetAmount) - BigInt(currentBalance || "0");
+  if (remaining <= 0n) return "0";
+  return ((remaining + BigInt(months) - 1n) / BigInt(months)).toString();
 }
 
 /** `YYYY-MM-DD` daqui a N meses, mesmo dia do mês corrente. */
@@ -60,10 +53,8 @@ export function GoalFormDialog({ entityId, open, onOpenChange, goal }: GoalFormD
   const isEdit = !!goal;
   const createGoal = useCreateGoal(entityId);
   const updateGoal = useUpdateGoal(entityId);
-  const preview = useGoalPreview(entityId);
 
   const [name, setName] = useState("");
-  const [category, setCategory] = useState<GoalCategory>("RESERVE");
   const [amount, setAmount] = useState("");
   const [dateMode, setDateMode] = useState<"date" | "months">("date");
   const [targetDate, setTargetDate] = useState("");
@@ -73,7 +64,6 @@ export function GoalFormDialog({ entityId, open, onOpenChange, goal }: GoalFormD
   useEffect(() => {
     if (!open) return;
     setName(goal?.name ?? "");
-    setCategory(goal?.category ?? "RESERVE");
     setAmount(goal?.targetAmount ?? "");
     setDateMode("date");
     setTargetDate(goal?.targetDate ?? dateInMonths(12));
@@ -88,28 +78,10 @@ export function GoalFormDialog({ entityId, open, onOpenChange, goal }: GoalFormD
     if (Number.isFinite(n) && n > 0) setTargetDate(dateInMonths(n));
   }, [dateMode, months]);
 
-  // Prévia local instantânea (mesma fórmula simples do backend: valor
-  // restante dividido pelos meses restantes) — atualiza a cada tecla.
-  const localPreview = useMemo(() => {
-    if (!amount || !targetDate || BigInt(amount || "0") <= 0n) return null;
-    const remaining = BigInt(amount) - BigInt(goal?.currentAmount ?? "0");
-    if (remaining <= 0n) return "0";
-    const n = monthsUntil(targetDate);
-    return (remaining / BigInt(n)).toString();
-  }, [amount, targetDate, goal?.currentAmount]);
-
-  // Confirmação com o backend, debounced — só quando os valores mudam e são
-  // válidos. O valor exibido prioriza a resposta do servidor quando chega.
-  useEffect(() => {
-    if (!open || !entityId || !amount || !targetDate || BigInt(amount || "0") <= 0n) return;
-    const t = setTimeout(() => {
-      preview.mutate({ targetAmount: amount, targetDate });
-    }, 400);
-    return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, entityId, amount, targetDate]);
-
-  const displayedRequired = preview.data?.requiredMonthlyContribution ?? localPreview;
+  const preview = useMemo(() => {
+    if (!amount || BigInt(amount || "0") <= 0n || !targetDate) return null;
+    return requiredMonthly(amount, goal?.currentBalance ?? "0", monthsRemaining(targetDate));
+  }, [amount, targetDate, goal?.currentBalance]);
 
   const pending = createGoal.isPending || updateGoal.isPending;
 
@@ -133,7 +105,6 @@ export function GoalFormDialog({ entityId, open, onOpenChange, goal }: GoalFormD
         await updateGoal.mutateAsync({
           goalId: goal.id,
           name,
-          category,
           targetAmount: amount,
           targetDate,
         });
@@ -141,7 +112,6 @@ export function GoalFormDialog({ entityId, open, onOpenChange, goal }: GoalFormD
       } else {
         await createGoal.mutateAsync({
           name,
-          category,
           targetAmount: amount,
           currency: "BRL",
           targetDate,
@@ -171,22 +141,6 @@ export function GoalFormDialog({ entityId, open, onOpenChange, goal }: GoalFormD
             placeholder="Ex.: Viagem para a praia"
             autoFocus
           />
-        </div>
-
-        <div className="space-y-1.5">
-          <Label>Categoria</Label>
-          <Select value={category} onValueChange={(v) => setCategory(v as GoalCategory)}>
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {CATEGORY_OPTIONS.map((o) => (
-                <SelectItem key={o.value} value={o.value}>
-                  {o.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
         </div>
 
         <div className="space-y-1.5">
@@ -234,18 +188,13 @@ export function GoalFormDialog({ entityId, open, onOpenChange, goal }: GoalFormD
           </div>
         )}
 
-        {displayedRequired !== null && (
+        {preview !== null && (
           <div className="rounded-xl border border-brand/30 bg-brand-soft/40 p-3">
             <p className="text-xs text-muted-foreground">Aporte mensal necessário</p>
             <p className="tnum text-lg font-semibold">
-              <MoneyText cents={displayedRequired} />
+              <MoneyText cents={preview} />
               /mês
             </p>
-            {preview.isPending && (
-              <p className="mt-0.5 text-[10px] text-muted-foreground">
-                Confirmando com o servidor…
-              </p>
-            )}
           </div>
         )}
 

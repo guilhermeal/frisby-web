@@ -10,14 +10,20 @@ function decimalsOf(currency: Currency): number {
   return ZERO_DECIMAL.has(currency) ? 0 : 2;
 }
 
-export function centsToNumber(cents: string | bigint, currency: Currency = "BRL"): number {
+export function centsToNumber(
+  cents: string | bigint | null | undefined,
+  currency: Currency = "BRL",
+): number {
+  // Campo monetário ausente (bug de contrato de API) não deve derrubar a
+  // página — trata como zero em vez de deixar o BigInt() lançar.
+  if (cents === null || cents === undefined || cents === "") return 0;
   const n = typeof cents === "bigint" ? cents : BigInt(cents);
   const divisor = 10 ** decimalsOf(currency);
   return Number(n) / divisor;
 }
 
 export function formatMoney(
-  cents: string | bigint,
+  cents: string | bigint | null | undefined,
   currency: Currency = "BRL",
   locale = "pt-BR",
   opts: { sign?: boolean } = {},
