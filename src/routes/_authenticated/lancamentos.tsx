@@ -195,13 +195,18 @@ function Lancamentos() {
     [txQ.data, cardIds, onlyMine, accountMap, user?.id],
   );
 
+  // A fatura aparece no mês em que ela VENCE (dueDate), não no mês do ciclo
+  // de fechamento (referenceMonth/inv.month) — o que importa pro usuário
+  // aqui é "quando vou precisar pagar", não o período de compras em si (esse
+  // detalhe already vive dentro do InvoiceDetailDialog). Evita a fatura
+  // "sumir" do mês corrente quando o fechamento cai perto da virada do mês.
   const invoiceRows = useMemo(() => {
     const result: Array<{ invoice: Invoice; cardId: string; count: number }> = [];
     for (const cardId of cardIds) {
       if (onlyMine && !isMine(cardId)) continue;
       const invoices = invoicesByCard.data.get(cardId) ?? [];
       for (const inv of invoices) {
-        if (inv.month !== month) continue;
+        if (inv.dueDate.slice(0, 7) !== month) continue;
         const count = (txQ.data ?? []).filter(
           (t) => t.accountId === cardId && t.cardInvoiceId === inv.id,
         ).length;
@@ -685,9 +690,7 @@ function InvoiceRowMobile({
             <MoneyText cents={invoice.calculatedAmount} kind="expense" className="text-sm" sign />
           </div>
           <p className="mt-0.5 truncate text-xs text-muted-foreground">
-            {invoice.status === "CLOSED" || invoice.status === "PARTIAL"
-              ? `vence ${formatDate(invoice.dueDate)}`
-              : "fatura do período"}
+            vence {formatDate(invoice.dueDate)}
           </p>
           <div className="mt-2">
             <StatusPill status={invoice.status} overdue={overdue} />
@@ -731,11 +734,7 @@ function InvoiceRowDesktop({
       </td>
       <td className="px-5 py-3.5 text-muted-foreground">—</td>
       <td className="px-5 py-3.5 text-muted-foreground">{card?.name ?? "sem conta"}</td>
-      <td className="tnum px-5 py-3.5 text-muted-foreground">
-        {invoice.status === "CLOSED" || invoice.status === "PARTIAL"
-          ? formatDate(invoice.dueDate)
-          : "—"}
-      </td>
+      <td className="tnum px-5 py-3.5 text-muted-foreground">{formatDate(invoice.dueDate)}</td>
       <td className="px-5 py-3.5">
         <StatusPill status={invoice.status} overdue={overdue} />
       </td>
